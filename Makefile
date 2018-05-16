@@ -3,6 +3,7 @@
 # @ndinata
 
 CC	= gcc
+CFLAGS = -lssl -lcrypto
 
 SRC	= certcheck.c
 OBJ	= certcheck.o
@@ -10,7 +11,7 @@ EXE = certcheck
 
 # Creating the executable
 $(EXE): $(OBJ)
-	$(CC) -o $(EXE) $(OBJ)
+	$(CC) -o $(EXE) $(OBJ) $(CFLAGS)
 
 clean:
 	rm -f $(OBJ)
