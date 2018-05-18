@@ -3,7 +3,7 @@
 # @ndinata
 
 CC	= gcc
-CFLAGS = -lssl -lcrypto
+CFLAGS = -lssl -lcrypto -Wall
 
 SRC	= certcheck.c
 OBJ	= certcheck.o
@@ -18,3 +18,4 @@ clean:
 
 clobber: clean
 	rm $(EXE)
+	rm output.csv
