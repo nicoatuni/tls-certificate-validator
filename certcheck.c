@@ -17,7 +17,7 @@ void validate_cert(FILE* output, char* path_to_cert, char* url);
 int main(int argc, char const *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Usage: %s path_to_csv_file\n", argv[0]);
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
 
     // open the input csv file
@@ -25,14 +25,14 @@ int main(int argc, char const *argv[]) {
     FILE* fp = fopen(csv_filename, "r");
     if (fp == NULL) {
         perror("Error opening input csv file");
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
 
     // open the output file
     FILE* output = fopen("output.csv", "a");
     if (output == NULL) {
         perror("Error opening output file");
-        return EXIT_FAILURE;
+        exit(EXIT_FAILURE);
     }
 
     // read the contents of the input csv file
@@ -63,8 +63,66 @@ int main(int argc, char const *argv[]) {
  * output to `output`.
  * @param output file
  * @param path_to_cert path to the certificate
- * @param url purported domain name of the certificate
+ * @param url from which the certificate belongs
  */
 void validate_cert(FILE* output, char* path_to_cert, char* url) {
+    BIO *certificate_bio = NULL;
+    X509 *cert = NULL;
+    X509_NAME *cert_issuer = NULL;
+    X509_CINF *cert_inf = NULL;
+    STACK_OF(X509_EXTENSION) * ext_list;
 
+    // initialise OpenSSL
+    OpenSSL_add_all_algorithms();
+    ERR_load_BIO_strings();
+    ERR_load_crypto_strings();
+
+    // create BIO object to read certificate
+    certificate_bio = BIO_new(BIO_s_file());
+
+    // read certificate into BIO
+    if (!(BIO_read_filename(certificate_bio, path_to_cert))) {
+        fprintf(stderr, "Error in reading cert BIO filename");
+        exit(EXIT_FAILURE);
+    }
+
+    if (!(cert = PEM_read_bio_X509(certificate_bio, NULL, 0, NULL))) {
+        fprintf(stderr, "Error in loading certificate");
+        exit(EXIT_FAILURE);
+    }
+
+    // cert contains the x509 certificate and is good to go!
+    
+    // the minimum checking you are expected to do is as follows:
+    // 1. validation of dates, both the `Not Before` and `Not After` dates
+    // 2. domain name validation, including Subject Alternative Name (SAN) extension, and wildcards
+    // 3. minimum key length of 2048 bits for RSA
+    // 4. correct key usage, including extensions
+
+    // You  can  assume  that  there  are  no  restrictions  on  Subject  Alternative Name’s  beyond  the  specification,  and  in  particular  that  wildcard  domains are allowed in both the Common Name and the SAN.
+    // Your checking code should handle such wildcards correctly. You can assume that all certificates will use RSA keys.
+
+    // Part B Basic Certificate Checking (5 marks)
+    // – Reads input CSV and write output CSV (1 mark)
+    // – Correctly validates `Not Before` date (1 mark)
+    // – Correctly validates `Not After` date (1 mark)
+    // – Correctly validates domain name in Common Name (2 mark)
+
+    // Part C Advanced Certificate Checking (5 marks)
+    // – Correctly validates minimum RSA key length of 2048 bits (1 mark)
+    // – Correctly validates key usage and constraints (2 mark)
+    //      ∗ BasicConstraints includes “CA:FALSE”
+    //      ∗ Enhanced Key Usage includes “TLS Web Server Authentication”
+    // – Correctly validates Subject Alternative Name extension (2 marks)
+
+    // A list of function calls you may NOT use is as follows:
+    // - X509_check_ca
+    // - X509_check_host
+    // - X509_cmp_current_time
+    // - X509_cmp_time
+
+    int is_valid = 0;
+
+    // write output into the output file
+    fprintf(output, "%s,%s,%d\n", path_to_cert, url, is_valid);
 }
