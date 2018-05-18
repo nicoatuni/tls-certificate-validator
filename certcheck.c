@@ -92,7 +92,7 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
     }
 
     // cert contains the x509 certificate and is ready to be validated!
-    int is_valid = 0;
+    int is_valid = 1;
 
     // check the `Not Before` date
     int day, sec;
@@ -104,7 +104,23 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
 
     // valid only if `before` is actually before current time
     if (day <= 0 || sec <= 0) {
-        is_valid = 1;
+        // proceed without doing anything, as it is valid
+    } else {
+        is_valid = 0;
+    }
+
+    // check the `Not After` (expiry) date
+    ASN1_TIME *after = X509_get_notAfter(cert);
+    if (!ASN1_TIME_diff(&day, &sec, NULL, after)) {
+        perror("Error checking `Not After` date");
+        exit(EXIT_FAILURE);
+    }
+
+    // valid only if `after` is actually after current time
+    if (day > 0 || sec > 0) {
+        // proceed; valid date
+    } else {
+        is_valid = 0;
     }
 
     
