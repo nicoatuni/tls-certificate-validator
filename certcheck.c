@@ -6,6 +6,7 @@
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/err.h>
+#include <openssl/asn1.h>
 
 # define LINE_LENGTH 1024
 
@@ -69,7 +70,6 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
     BIO *certificate_bio = NULL;
     X509 *cert = NULL;
     X509_NAME *cert_issuer = NULL;
-    X509_CINF *cert_inf = NULL;
     STACK_OF(X509_EXTENSION) * ext_list;
 
     // initialise OpenSSL
@@ -91,7 +91,22 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
         exit(EXIT_FAILURE);
     }
 
-    // cert contains the x509 certificate and is good to go!
+    // cert contains the x509 certificate and is ready to be validated!
+    int is_valid = 0;
+
+    // check the `Not Before` date
+    int day, sec;
+    ASN1_TIME *before = X509_get_notBefore(cert);
+    if (!ASN1_TIME_diff(&day, &sec, NULL, before)) {
+        perror("Error checking `Not Before` date");
+        exit(EXIT_FAILURE);
+    }
+
+    // valid only if `before` is actually before current time
+    if (day <= 0 || sec <= 0) {
+        is_valid = 1;
+    }
+
     
     // the minimum checking you are expected to do is as follows:
     // 1. validation of dates, both the `Not Before` and `Not After` dates
@@ -120,8 +135,6 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
     // - X509_check_host
     // - X509_cmp_current_time
     // - X509_cmp_time
-
-    int is_valid = 0;
 
     // write output into the output file
     fprintf(output, "%s,%s,%d\n", path_to_cert, url, is_valid);
