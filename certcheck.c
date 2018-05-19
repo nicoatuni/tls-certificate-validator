@@ -15,7 +15,7 @@
 /* ---------------------- Helper function prototype ------------------------- */
 void validate_cert(FILE* output, char* path_to_cert, char* url);
 int validate_dates(X509* cert);
-int validate_name(X509 *cert);
+int validate_name(X509 *cert, char* url);
 
 
 /* ----------------------------- Main Program ------------------------------- */
@@ -73,7 +73,6 @@ int main(int argc, char const *argv[]) {
 void validate_cert(FILE* output, char* path_to_cert, char* url) {
     BIO *certificate_bio = NULL;
     X509 *cert = NULL;
-    X509_NAME *cert_issuer = NULL;
     STACK_OF(X509_EXTENSION) * ext_list;
 
     // initialise OpenSSL
@@ -103,7 +102,7 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
     }
 
     // validate domain name
-    if (!validate_name(cert)) {
+    if (!validate_name(cert, url)) {
         fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
         return;
     }
@@ -141,12 +140,15 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
 
     // write output into the output file
     fprintf(output, "%s,%s,%d\n", path_to_cert, url, VALID);
+
+    X509_free(cert);
+    BIO_free_all(certificate_bio);
 }
 
 
 /**
  * Checks the `notBefore` and `notAfter` dates of the cert.
- * @param cert whose dates are to be validated
+ * @param cert  whose dates are to be validated
  * @return whether the dates are valid (1) or not (0)
  */
 int validate_dates(X509 *cert) {
@@ -184,10 +186,11 @@ int validate_dates(X509 *cert) {
 
 /**
  * Checks the domain name of the cert.
- * @param cert whose name is to be validated
+ * @param cert  whose name is to be validated
+ * @param url   to which the cert is supposed to belong to
  * @return whether the name is valid (1) or not (0)
  */
-int validate_name(X509 *cert) {
+int validate_name(X509 *cert, char* url) {
     
 
 
