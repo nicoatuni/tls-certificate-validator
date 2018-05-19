@@ -103,13 +103,15 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
 
     
     // the minimum checking you are expected to do is as follows:
-    // 1. validation of dates, both the `Not Before` and `Not After` dates
-    // 2. domain name validation, including Subject Alternative Name (SAN) extension, and wildcards
-    // 3. minimum key length of 2048 bits for RSA
-    // 4. correct key usage, including extensions
+    // 1. [X] validation of dates, both the `Not Before` and `Not After` dates
+    // 2. [ ] domain name validation, including SAN extension, and wildcards
+    // 3. [ ] minimum key length of 2048 bits for RSA
+    // 4. [ ] correct key usage, including extensions
 
-    // You  can  assume  that  there  are  no  restrictions  on  Subject  Alternative Name’s  beyond  the  specification,  and  in  particular  that  wildcard  domains are allowed in both the Common Name and the SAN.
-    // Your checking code should handle such wildcards correctly. You can assume that all certificates will use RSA keys.
+    // Assumptions:
+    // - no restrictions on SAN’s beyond the specification
+    // - wildcard domains are allowed in both the Common Name and the SAN.
+    // - all certificates will use RSA key
 
     // Part B Basic Certificate Checking (5 marks)
     // – Reads input CSV and write output CSV (1 mark)
