@@ -15,6 +15,7 @@
 /* ---------------------- Helper function prototype ------------------------- */
 void validate_cert(FILE* output, char* path_to_cert, char* url);
 int validate_dates(X509* cert);
+int validate_name(X509 *cert);
 
 
 /* ----------------------------- Main Program ------------------------------- */
@@ -101,6 +102,12 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
         return;
     }
 
+    // validate domain name
+    if (!validate_name(cert)) {
+        fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
+        return;
+    }
+
     
     // the minimum checking you are expected to do is as follows:
     // 1. [X] validation of dates, both the `Not Before` and `Not After` dates
@@ -142,7 +149,7 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
  * @param cert whose dates are to be validated
  * @return whether the dates are valid (1) or not (0)
  */
-int validate_dates(X509* cert) {
+int validate_dates(X509 *cert) {
     int day, sec;
 
     // check the `notBefore` date
@@ -171,5 +178,19 @@ int validate_dates(X509* cert) {
     }
 
     // dates are valid!
+    return 1;
+}
+
+
+/**
+ * Checks the domain name of the cert.
+ * @param cert whose name is to be validated
+ * @return whether the name is valid (1) or not (0)
+ */
+int validate_name(X509 *cert) {
+    
+
+
+    // all good!
     return 1;
 }
