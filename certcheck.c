@@ -209,18 +209,21 @@ int validate_name(X509 *cert, char* url) {
 
     // check Subject Alternative Name (SAN)
     X509_EXTENSION *ex = X509_get_ext(cert, X509_get_ext_by_NID(cert, NID_subject_alt_name, -1));
-    ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
-    char buff[1024];
-    OBJ_obj2txt(buff, 1024, obj, 0);
+    // ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
+    // char buff[2048];
+    // OBJ_obj2txt(buff, 2048, obj, 0);
 
     BUF_MEM *bptr = NULL;
     char *buf = NULL;
 
     BIO *bio = BIO_new(BIO_s_mem());
-    if (!X509V3_EXT_print(bio, ex, 0, 0))
-    {
+
+    /* Causing segfault > > > > > > > > > > > > > > > > > > > > > > > > > > > */
+    if (!X509V3_EXT_print(bio, ex, 0, 0)) {
         fprintf(stderr, "Error in reading extensions");
     }
+    /* > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > */
+
     BIO_flush(bio);
     BIO_get_mem_ptr(bio, &bptr);
 
