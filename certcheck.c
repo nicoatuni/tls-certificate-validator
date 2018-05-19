@@ -9,9 +9,12 @@
 #include <openssl/asn1.h>
 
 # define LINE_LENGTH 1024
+# define VALID 1
+# define INVALID 0
 
 /* ---------------------- Helper function prototype ------------------------- */
 void validate_cert(FILE* output, char* path_to_cert, char* url);
+int validate_dates(X509* cert);
 
 
 /* ----------------------------- Main Program ------------------------------- */
@@ -92,35 +95,10 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
     }
 
     // cert contains the x509 certificate and is ready to be validated!
-    int is_valid = 1;
-
-    // check the `Not Before` date
-    int day, sec;
-    ASN1_TIME *before = X509_get_notBefore(cert);
-    if (!ASN1_TIME_diff(&day, &sec, NULL, before)) {
-        perror("Error checking `Not Before` date");
-        exit(EXIT_FAILURE);
-    }
-
-    // valid only if `before` is actually before current time
-    if (day <= 0 || sec <= 0) {
-        // proceed without doing anything, as it is valid
-    } else {
-        is_valid = 0;
-    }
-
-    // check the `Not After` (expiry) date
-    ASN1_TIME *after = X509_get_notAfter(cert);
-    if (!ASN1_TIME_diff(&day, &sec, NULL, after)) {
-        perror("Error checking `Not After` date");
-        exit(EXIT_FAILURE);
-    }
-
-    // valid only if `after` is actually after current time
-    if (day > 0 || sec > 0) {
-        // proceed; valid date
-    } else {
-        is_valid = 0;
+    // first, check the dates
+    if (!validate_dates(cert)) {
+        fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
+        return;
     }
 
     
@@ -153,5 +131,43 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
     // - X509_cmp_time
 
     // write output into the output file
-    fprintf(output, "%s,%s,%d\n", path_to_cert, url, is_valid);
+    fprintf(output, "%s,%s,%d\n", path_to_cert, url, VALID);
+}
+
+
+/**
+ * Checks the `notBefore` and `notAfter` dates of the cert.
+ * @param cert whose dates are to be validated
+ * @return whether the dates are valid (1) or not (0)
+ */
+int validate_dates(X509* cert) {
+    int day, sec;
+
+    // check the `notBefore` date
+    ASN1_TIME *before = X509_get_notBefore(cert);
+    if (!ASN1_TIME_diff(&day, &sec, NULL, before)) {
+        perror("Error checking `Not Before` date");
+        exit(EXIT_FAILURE);
+    }
+
+    // if `day` or `sec` is +ve, `notBefore` is in the future
+    // hence, invalid cert
+    if (day > 0 || sec > 0) {
+        return 0;
+    }
+
+    // check the `notAfter` (expiry) date
+    ASN1_TIME *after = X509_get_notAfter(cert);
+    if (!ASN1_TIME_diff(&day, &sec, NULL, after)) {
+        perror("Error checking `Not After` date");
+        exit(EXIT_FAILURE);
+    }
+
+    // if `day` or `sec` is -ve, `notAfter` is in the past
+    if (day < 0 || sec < 0) {
+        return 0;
+    }
+
+    // dates are valid!
+    return 1;
 }
