@@ -73,7 +73,7 @@ int main(int argc, char const *argv[]) {
 void validate_cert(FILE* output, char* path_to_cert, char* url) {
     BIO *certificate_bio = NULL;
     X509 *cert = NULL;
-    STACK_OF(X509_EXTENSION) * ext_list;
+    // STACK_OF(X509_EXTENSION) * ext_list;
 
     // initialise OpenSSL
     OpenSSL_add_all_algorithms();
@@ -191,8 +191,19 @@ int validate_dates(X509 *cert) {
  * @return whether the name is valid (1) or not (0)
  */
 int validate_name(X509 *cert, char* url) {
+    char cn_buf[1024] = "CN NOT FOUND";
+    X509_NAME *common_name = X509_get_subject_name(cert);
+    if (X509_NAME_get_text_by_NID(common_name, NID_commonName, cn_buf, 1024) < 0) {
+        fprintf(stderr, "CN NOT FOUND");
+        exit(EXIT_FAILURE);
+    }
     
+    // check if CommonName corresponds to URL
+    if (strncmp(url, cn_buf, strlen(url)) != 0) {
+        return 0;
+    }
 
+    
 
     // all good!
     return 1;
