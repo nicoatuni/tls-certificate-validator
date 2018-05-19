@@ -11,6 +11,7 @@
 # define LINE_LENGTH 1024
 # define VALID 1
 # define INVALID 0
+#define CN_BUF_SIZE 1024
 
 /* ---------------------- Helper function prototype ------------------------- */
 void validate_cert(FILE* output, char* path_to_cert, char* url);
@@ -191,20 +192,49 @@ int validate_dates(X509 *cert) {
  * @return whether the name is valid (1) or not (0)
  */
 int validate_name(X509 *cert, char* url) {
-    char cn_buf[1024] = "CN NOT FOUND";
+    int cn_valid = INVALID;             // CommonName
+    int san_valid = INVALID;            // Subject Alternative Name
+
+    // check if CommonName corresponds to URL
+    char cn_buf[CN_BUF_SIZE] = "CN NOT FOUND";
     X509_NAME *common_name = X509_get_subject_name(cert);
-    if (X509_NAME_get_text_by_NID(common_name, NID_commonName, cn_buf, 1024) < 0) {
+    if (X509_NAME_get_text_by_NID(common_name, NID_commonName, cn_buf, CN_BUF_SIZE) < 0) {
         fprintf(stderr, "CN NOT FOUND");
         exit(EXIT_FAILURE);
     }
     
-    // check if CommonName corresponds to URL
-    if (strncmp(url, cn_buf, strlen(url)) != 0) {
-        return 0;
+    if (!strncmp(url, cn_buf, strlen(url))) {
+        cn_valid = VALID;
     }
 
-    
+    // check Subject Alternative Name (SAN)
+    X509_EXTENSION *ex = X509_get_ext(cert, X509_get_ext_by_NID(cert, NID_subject_alt_name, -1));
+    ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
+    char buff[1024];
+    OBJ_obj2txt(buff, 1024, obj, 0);
+
+    BUF_MEM *bptr = NULL;
+    char *buf = NULL;
+
+    BIO *bio = BIO_new(BIO_s_mem());
+    if (!X509V3_EXT_print(bio, ex, 0, 0))
+    {
+        fprintf(stderr, "Error in reading extensions");
+    }
+    BIO_flush(bio);
+    BIO_get_mem_ptr(bio, &bptr);
+
+    //bptr->data is not NULL terminated - add null character
+    buf = (char *)malloc((bptr->length + 1) * sizeof(char));
+    memcpy(buf, bptr->data, bptr->length);
+    buf[bptr->length] = '\0';
+
+    //Can print or parse value
+    printf("%s\n", buf);
+
+    BIO_free_all(bio);
+    free(buf);
 
     // all good!
-    return 1;
+    return (cn_valid || san_valid);
 }
