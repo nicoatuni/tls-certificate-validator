@@ -29,6 +29,7 @@ int validate_dates(X509 *cert, char* path_to_cert);
 /* --------------------------------------------------------------------- */
 // int validate_dates(X509 *cert);
 int validate_name(X509 *cert, char* url);
+int validate_cn(X509 *cert, char* url);
 
 
 /* ----------------------------- Main Program ------------------------------- */
@@ -223,52 +224,31 @@ int validate_dates(X509 *cert, char* path_to_cert) {
  * @return whether the name is valid (1) or not (0)
  */
 int validate_name(X509 *cert, char* url) {
-    int cn_valid = INVALID;             // CommonName (CN)
     int san_valid = INVALID;            // Subject Alternative Name (SAN)
 
-    // obtain the cert's CN
-    char* cn_buf = (char*)malloc(CN_BUF_SIZE * sizeof(char));
-    X509_NAME *common_name = X509_get_subject_name(cert);
-    if (X509_NAME_get_text_by_NID(common_name, NID_commonName, cn_buf, CN_BUF_SIZE) < 0) {
-        fprintf(stderr, "CN NOT FOUND\n");
-        exit(EXIT_FAILURE);
-    }
-
-    // check if CN matches the URL
-    if (!strncmp(url, cn_buf, strlen(url))) {
-        /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-15s  CN matches URL (1)\n", "");
-        /* ------------------------------------------------------------- */
-
-        free(cn_buf);
-        return VALID;
-    } else {
-        // maybe it matches through a wildcard?
-        char* wildcard;
-        if (cn_buf[0] == '*') {
-            char* cn_buf_temp = cn_buf + 1;
-            wildcard = strstr(url, cn_buf_temp);
-            if (wildcard != NULL) {
-                /* DEBUGGING -- REMOVE --------------------------------- */
-                DLOG("%-15s  CN (wildcard) matches URL (1)\n", "");
-                /* ----------------------------------------------------- */
-
-                free(cn_buf);
-                return VALID;
-            }
-        }
-    }
+    // check whether CommonName (CN) corresponds to URL
+    int cn_valid = validate_cn(cert, url);
 
     /* CN is invalid, validity depends solely on the SAN(s) now */
 
     // if the cert doesn't have any SAN's, it's invalid
     int loc = X509_get_ext_by_NID(cert, NID_subject_alt_name, -1);
     if (loc == -1) {
-        /* DEBUGGING -- REMOVE --------------------------------- */
-        DLOG("%-15s  CN does not match URL + No SAN (0)\n", "");
-        /* ----------------------------------------------------- */
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        if (!cn_valid) {
+            DLOG("%-15s  CN does not match URL + No SAN (0)\n", "");
+        }
+        /* ------------------------------------------------------------- */
         return INVALID;
     }
+
+    /* DEBUGGING -- REMOVE --------------------------------------------- */
+    if (cn_valid) {
+        DLOG("%-15s  CN matches URL + SAN (1)\n", "");
+    } else {
+        DLOG("%-15s  CN does not match URL + SAN (?)\n", "");
+    }
+    /* ----------------------------------------------------------------- */
 
     // SAN(s) are present; obtain their value(s)
     X509_EXTENSION *ex = X509_get_ext(cert, loc);
@@ -295,4 +275,50 @@ int validate_name(X509 *cert, char* url) {
 
     // all good!
     return (cn_valid || san_valid);
+}
+
+
+/**
+ * Checks whether the cert's CommonName corresponds to its URL.
+ * @param cert  whose CommonName is to be checked
+ * @param url   to which the cert's CommonName is compared
+ * @return whether the cert's CommonName corresponds to the URL (1) or not (0)
+ */
+int validate_cn(X509 *cert, char* url) {
+    // obtain the cert's CN
+    char* cn_buf = (char*)malloc(CN_BUF_SIZE * sizeof(char));
+    X509_NAME *common_name = X509_get_subject_name(cert);
+    if (X509_NAME_get_text_by_NID(common_name, NID_commonName, cn_buf, CN_BUF_SIZE) < 0) {
+        fprintf(stderr, "CN NOT FOUND\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // check if CN matches the URL
+    if (!strncmp(url, cn_buf, strlen(url))) {
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        DLOG("%-15s  CN matches URL (1)\n", "");
+        /* ------------------------------------------------------------- */
+
+        free(cn_buf);
+        return VALID;
+    } else {
+        // maybe it matches through a wildcard?
+        char* wildcard;
+        if (cn_buf[0] == '*') {
+            char* cn_buf_temp = cn_buf + 1;
+            wildcard = strstr(url, cn_buf_temp);
+
+            if (wildcard != NULL) {
+                /* DEBUGGING -- REMOVE --------------------------------- */
+                DLOG("%-15s  CN (wildcard) matches URL (1)\n", "");
+                /* ----------------------------------------------------- */
+
+                // it _does_ match through a wildcard!
+                free(cn_buf);
+                return VALID;
+            }
+        }
+    }
+
+    return INVALID;
 }
