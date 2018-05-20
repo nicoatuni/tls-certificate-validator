@@ -8,7 +8,7 @@ CFLAGS	= -Wall -lssl -lcrypto
 # > > > > > > > > > > > > > > > > > > > > > > > > > > > |
 # REMOVE
 I_FLAG	= -I/Users/nico/miniconda3/envs/util/include/
-L_FLAG	= -L/Users/nico/miniconda3/envs/util/lib/
+L_FLAG	= -L/Users/nico/miniconda3/envs/util/lib/ -rpath /Users/nico/miniconda3/envs/util/lib/
 # > > > > > > > > > > > > > > > > > > > > > > > > > > > |
 
 SRC	= certcheck.c
@@ -19,7 +19,7 @@ EXE	= certcheck
 $(EXE): $(OBJ)
 	# > > > > > > > > > > > > > > > > > > > > > > > > |
 	# REMOVE & UNCOMMENT BELOW
-	$(CC) -o $(EXE) $(OBJ) $(CFLAGS) $(L_FLAG) $(I_FLAG)
+	$(CC) -o $(EXE) $(OBJ) $(CFLAGS) $(L_FLAG)
 	# > > > > > > > > > > > > > > > > > > > > > > > > |
 	# $(CC) -o $(EXE) $(0BJ) $(CFLAGS)
 
