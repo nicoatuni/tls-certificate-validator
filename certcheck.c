@@ -11,12 +11,12 @@
 # define LINE_LENGTH 1024
 # define VALID 1
 # define INVALID 0
-#define CN_BUF_SIZE 1024
+# define CN_BUF_SIZE 1024
 
 /* ---------------------- Helper function prototype ------------------------- */
 void validate_cert(FILE* output, char* path_to_cert, char* url);
 int validate_dates(X509* cert);
-int validate_name(X509 *cert, char* url);
+int validate_name(X509 *cert, char* url, char* path_to_cert);
 
 
 /* ----------------------------- Main Program ------------------------------- */
@@ -103,7 +103,7 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
     }
 
     // validate domain name
-    if (!validate_name(cert, url)) {
+    if (!validate_name(cert, url, path_to_cert)) {
         fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
         return;
     }
@@ -191,48 +191,69 @@ int validate_dates(X509 *cert) {
  * @param url   to which the cert is supposed to belong to
  * @return whether the name is valid (1) or not (0)
  */
-int validate_name(X509 *cert, char* url) {
-    int cn_valid = INVALID;             // CommonName
-    int san_valid = INVALID;            // Subject Alternative Name
+int validate_name(X509 *cert, char* url, char* path_to_cert) {
+    int cn_valid = INVALID;             // CommonName (CN)
+    int san_valid = INVALID;            // Subject Alternative Name (SAN)
 
-    // check if CommonName corresponds to URL
-    char cn_buf[CN_BUF_SIZE] = "CN NOT FOUND";
+    // obtain the cert's CN
+    char* cn_buf = (char*)malloc(CN_BUF_SIZE * sizeof(char));
     X509_NAME *common_name = X509_get_subject_name(cert);
     if (X509_NAME_get_text_by_NID(common_name, NID_commonName, cn_buf, CN_BUF_SIZE) < 0) {
-        fprintf(stderr, "CN NOT FOUND");
+        fprintf(stderr, "CN NOT FOUND\n");
         exit(EXIT_FAILURE);
     }
-    
+
+    // check if CN matches the URL
     if (!strncmp(url, cn_buf, strlen(url))) {
-        cn_valid = VALID;
+        /* DEBUGGING -- TO BE REMOVED ---------------------------------- */
+        // printf("%s: CN matches URL\n", path_to_cert);
+        /* ------------------------------------------------------------- */
+
+        free(cn_buf);
+        return VALID;
+    } else {
+        // maybe it matches through a wildcard?
+        char* wildcard;
+        if (cn_buf[0] == '*') {
+            char* cn_buf_temp = cn_buf + 1;
+            wildcard = strstr(url, cn_buf_temp);
+            if (wildcard != NULL) {
+                /* DEBUGGING -- TO BE REMOVED -------------------------- */
+                // printf("%s: CN (wildcard) matches URL\n", path_to_cert);
+                /* ----------------------------------------------------- */
+
+                free(cn_buf);
+                return VALID;
+            }
+        }
     }
 
-    // check Subject Alternative Name (SAN)
-    X509_EXTENSION *ex = X509_get_ext(cert, X509_get_ext_by_NID(cert, NID_subject_alt_name, -1));
-    // ASN1_OBJECT *obj = X509_EXTENSION_get_object(ex);
-    // char buff[2048];
-    // OBJ_obj2txt(buff, 2048, obj, 0);
+    /* CN is invalid, validity depends solely on the SAN(s) now */
 
+    // if the cert doesn't have any SAN's, it's invalid
+    int loc = X509_get_ext_by_NID(cert, NID_subject_alt_name, -1);
+    if (loc == -1) {
+        return INVALID;
+    }
+
+    // SAN(s) are present; obtain their value(s)
+    X509_EXTENSION *ex = X509_get_ext(cert, loc);
     BUF_MEM *bptr = NULL;
     char *buf = NULL;
-
     BIO *bio = BIO_new(BIO_s_mem());
 
-    /* Causing segfault > > > > > > > > > > > > > > > > > > > > > > > > > > > */
     if (!X509V3_EXT_print(bio, ex, 0, 0)) {
-        fprintf(stderr, "Error in reading extensions");
+        fprintf(stderr, "Error in reading extensions\n");
     }
-    /* > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > > */
 
     BIO_flush(bio);
     BIO_get_mem_ptr(bio, &bptr);
 
-    //bptr->data is not NULL terminated - add null character
+    // bptr->data is not NULL terminated - add null character
     buf = (char *)malloc((bptr->length + 1) * sizeof(char));
     memcpy(buf, bptr->data, bptr->length);
     buf[bptr->length] = '\0';
 
-    //Can print or parse value
     printf("%s\n", buf);
 
     BIO_free_all(bio);
