@@ -30,6 +30,7 @@ int validate_dates(X509 *cert, char* path_to_cert);
 // int validate_dates(X509 *cert);
 int validate_name(X509 *cert, char* url);
 int validate_cn(X509 *cert, char* url);
+int validate_san(int cn_valid, X509* cert, char* url);
 
 
 /* ----------------------------- Main Program ------------------------------- */
@@ -224,56 +225,12 @@ int validate_dates(X509 *cert, char* path_to_cert) {
  * @return whether the name is valid (1) or not (0)
  */
 int validate_name(X509 *cert, char* url) {
-    int san_valid = INVALID;            // Subject Alternative Name (SAN)
-
     // check whether CommonName (CN) corresponds to URL
     int cn_valid = validate_cn(cert, url);
 
-    /* CN is invalid, validity depends solely on the SAN(s) now */
+    // check whether any of the Subject Alternative Names (SAN) corresponds to URL
+    int san_valid = validate_san(cn_valid, cert, url);
 
-    // if the cert doesn't have any SAN's, it's invalid
-    int loc = X509_get_ext_by_NID(cert, NID_subject_alt_name, -1);
-    if (loc == -1) {
-        /* DEBUGGING -- REMOVE ----------------------------------------- */
-        if (!cn_valid) {
-            DLOG("%-15s  CN does not match URL + No SAN (0)\n", "");
-        }
-        /* ------------------------------------------------------------- */
-        return INVALID;
-    }
-
-    /* DEBUGGING -- REMOVE --------------------------------------------- */
-    if (cn_valid) {
-        DLOG("%-15s  CN matches URL + SAN (1)\n", "");
-    } else {
-        DLOG("%-15s  CN does not match URL + SAN (?)\n", "");
-    }
-    /* ----------------------------------------------------------------- */
-
-    // SAN(s) are present; obtain their value(s)
-    X509_EXTENSION *ex = X509_get_ext(cert, loc);
-    BUF_MEM *bptr = NULL;
-    char *buf = NULL;
-    BIO *bio = BIO_new(BIO_s_mem());
-
-    if (!X509V3_EXT_print(bio, ex, 0, 0)) {
-        fprintf(stderr, "Error in reading extensions\n");
-    }
-
-    BIO_flush(bio);
-    BIO_get_mem_ptr(bio, &bptr);
-
-    // bptr->data is not NULL terminated - add null character
-    buf = (char *)malloc((bptr->length + 1) * sizeof(char));
-    memcpy(buf, bptr->data, bptr->length);
-    buf[bptr->length] = '\0';
-
-    printf("%s\n", buf);
-
-    BIO_free_all(bio);
-    free(buf);
-
-    // all good!
     return (cn_valid || san_valid);
 }
 
@@ -319,6 +276,72 @@ int validate_cn(X509 *cert, char* url) {
             }
         }
     }
+
+    return INVALID;
+}
+
+
+/**
+ * Checks whether any of the cert's Subject Alternative Names corresponds to its
+ * URL.
+ * @param cn_valid  whether the cert's CommonName corresponds to its URL
+ * @param cert      whose Subject Alternative Name is to be checked
+ * @param url       to which the cert's Subject Alternative Name is compared
+ * @return whether they correspond (1) or not (0)
+ */
+int validate_san(int cn_valid, X509* cert, char* url) {
+    int loc = X509_get_ext_by_NID(cert, NID_subject_alt_name, -1);
+    if (loc == -1) {
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        if (!cn_valid) {
+            DLOG("%-15s  CN does not match URL + No SAN (0)\n", "");
+        }
+        /* ------------------------------------------------------------- */
+        return INVALID;
+    }
+
+    /* DEBUGGING -- REMOVE --------------------------------------------- */
+    if (cn_valid) {
+        DLOG("%-15s  CN matches URL + SAN (1)\n", "");
+    } else {
+        DLOG("%-15s  CN does not match URL + SAN (?)\n", "");
+    }
+    /* ----------------------------------------------------------------- */
+
+    // SAN(s) are present; obtain their value(s)
+    X509_EXTENSION *ex = X509_get_ext(cert, loc);
+    BUF_MEM *bptr = NULL;
+    char *buf = NULL;
+    BIO *bio = BIO_new(BIO_s_mem());
+
+    if (!X509V3_EXT_print(bio, ex, 0, 0)) {
+        fprintf(stderr, "Error in reading extensions\n");
+    }
+
+    BIO_flush(bio);
+    BIO_get_mem_ptr(bio, &bptr);
+
+    // bptr->data is not NULL terminated - add null character
+    buf = (char *)malloc((bptr->length + 1) * sizeof(char));
+    memcpy(buf, bptr->data, bptr->length);
+    buf[bptr->length] = '\0';
+
+    printf("%s\n", buf);
+
+    // get the first SAN
+    char* end_entry;
+    char* entry = strtok_r(buf, ",", &end_entry);
+
+    while (entry != NULL) {
+        char* end_san;
+        char* flush = strtok_r(entry, ":", &end_san);
+        char* san   = strtok_r(NULL, ":", &end_san);
+
+        entry = strtok_r(NULL, ",", &end_entry);
+    }
+
+    BIO_free_all(bio);
+    free(buf);
 
     return INVALID;
 }
