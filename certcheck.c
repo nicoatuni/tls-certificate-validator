@@ -15,8 +15,12 @@
 
 /* ---------------------- Helper function prototype ------------------------- */
 void validate_cert(FILE* output, char* path_to_cert, char* url);
-int validate_dates(X509* cert);
-int validate_name(X509 *cert, char* url, char* path_to_cert);
+
+/* DEBUGGING -- REMOVE & UNCOMMENT BELOW ------------------------------- */
+int validate_dates(X509 *cert, char* path_to_cert);
+/* --------------------------------------------------------------------- */
+// int validate_dates(X509 *cert);
+int validate_name(X509 *cert, char* url);
 
 
 /* ----------------------------- Main Program ------------------------------- */
@@ -41,19 +45,23 @@ int main(int argc, char const *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    /* DEBUGGING -- REMOVE --------------------------------------------- */
+    printf("START DEBUGGING\n=========================================\n");
+    /* ----------------------------------------------------------------- */
+
     // read the contents of the input csv file
     char line[LINE_LENGTH];
     while (fgets(line, LINE_LENGTH, fp)) {
         char* path_to_cert = strtok(line, ",");
         char* url = strtok(NULL, ",\n");
 
-        /* DEBUGGING -- TO BE REMOVED --------------------------------- */
-        // fprintf(output, "%s and %s\n", path_to_cert, url);
-        /* ------------------------------------------------------------ */
-
         // handle certificate validation
         validate_cert(output, path_to_cert, url);
     }
+
+    /* DEBUGGING -- REMOVE --------------------------------------------- */
+    printf("=========================================\n");
+    /* ----------------------------------------------------------------- */
     
     // close the input and output csv files
     fclose(output);
@@ -97,13 +105,16 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
 
     // cert contains the x509 certificate and is ready to be validated!
     // first, check the dates
-    if (!validate_dates(cert)) {
+    /* DEBUGGING -- REMOVE & UNCOMMENT BELOW --------------------------- */
+    if (!validate_dates(cert, path_to_cert)) {
+    /* ----------------------------------------------------------------- */
+    // if (!validate_dates(cert)) {
         fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
         return;
     }
 
     // validate domain name
-    if (!validate_name(cert, url, path_to_cert)) {
+    if (!validate_name(cert, url)) {
         fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
         return;
     }
@@ -152,7 +163,10 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
  * @param cert  whose dates are to be validated
  * @return whether the dates are valid (1) or not (0)
  */
-int validate_dates(X509 *cert) {
+/* DEBUGGING -- REMOVE & UNCOMMENT BELOW ------------------------------- */
+int validate_dates(X509 *cert, char* path_to_cert) {
+/* --------------------------------------------------------------------- */
+// int validate_dates(X509 *cert) {
     int day, sec;
 
     // check the `notBefore` date
@@ -162,10 +176,13 @@ int validate_dates(X509 *cert) {
         exit(EXIT_FAILURE);
     }
 
-    // if `day` or `sec` is +ve, `notBefore` is in the future
+    // if `day` or `sec` is positive, `notBefore` is in the future
     // hence, invalid cert
     if (day > 0 || sec > 0) {
-        return 0;
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        printf("%-15s: `notBefore` is in the future (0)\n", path_to_cert);
+        /* ------------------------------------------------------------- */
+        return INVALID;
     }
 
     // check the `notAfter` (expiry) date
@@ -175,13 +192,19 @@ int validate_dates(X509 *cert) {
         exit(EXIT_FAILURE);
     }
 
-    // if `day` or `sec` is -ve, `notAfter` is in the past
+    // if `day` or `sec` is negative, `notAfter` is in the past
     if (day < 0 || sec < 0) {
-        return 0;
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        printf("%-15s: `notAfter` is in the past (0)\n", path_to_cert);
+        /* ------------------------------------------------------------- */
+        return INVALID;
     }
 
     // dates are valid!
-    return 1;
+    /* DEBUGGING -- REMOVE ----------------------------------------- */
+    printf("%-15s: Dates are valid (1)\n", path_to_cert);
+    /* ------------------------------------------------------------- */
+    return VALID;
 }
 
 
@@ -191,7 +214,7 @@ int validate_dates(X509 *cert) {
  * @param url   to which the cert is supposed to belong to
  * @return whether the name is valid (1) or not (0)
  */
-int validate_name(X509 *cert, char* url, char* path_to_cert) {
+int validate_name(X509 *cert, char* url) {
     int cn_valid = INVALID;             // CommonName (CN)
     int san_valid = INVALID;            // Subject Alternative Name (SAN)
 
@@ -205,8 +228,8 @@ int validate_name(X509 *cert, char* url, char* path_to_cert) {
 
     // check if CN matches the URL
     if (!strncmp(url, cn_buf, strlen(url))) {
-        /* DEBUGGING -- TO BE REMOVED ---------------------------------- */
-        // printf("%s: CN matches URL\n", path_to_cert);
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        printf("%-15s  CN matches URL (1)\n", "");
         /* ------------------------------------------------------------- */
 
         free(cn_buf);
@@ -218,8 +241,8 @@ int validate_name(X509 *cert, char* url, char* path_to_cert) {
             char* cn_buf_temp = cn_buf + 1;
             wildcard = strstr(url, cn_buf_temp);
             if (wildcard != NULL) {
-                /* DEBUGGING -- TO BE REMOVED -------------------------- */
-                // printf("%s: CN (wildcard) matches URL\n", path_to_cert);
+                /* DEBUGGING -- REMOVE --------------------------------- */
+                printf("%-15s  CN (wildcard) matches URL (1)\n", "");
                 /* ----------------------------------------------------- */
 
                 free(cn_buf);
