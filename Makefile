@@ -3,19 +3,38 @@
 # @ndinata
 
 CC	= gcc
-CFLAGS = -lssl -lcrypto -Wall
+CFLAGS	= -Wall -lssl -lcrypto
+
+# > > > > > > > > > > > > > > > > > > > > > > > > > > > |
+# REMOVE THESE BEFORE SUBMISSION
+I_FLAG	= -I/Users/nico/miniconda3/envs/util/include/
+L_FLAG	= -L/Users/nico/miniconda3/envs/util/lib/
+# > > > > > > > > > > > > > > > > > > > > > > > > > > > |
 
 SRC	= certcheck.c
 OBJ	= certcheck.o
-EXE = certcheck
+EXE	= certcheck
 
-# Creating the executable
+
+all: $(EXE)
+
+
 $(EXE): $(OBJ)
-	$(CC) -o $(EXE) $(OBJ) $(CFLAGS)
+	# > > > > > > > > > > > > > > > > > > > > > > > > |
+	# REMOVE THIS AND UNCOMMENT THE ONE BELOW IT
+	$(CC) -o $(EXE) $(CFLAGS) $(L_FLAG) $(OBJ)
+	# > > > > > > > > > > > > > > > > > > > > > > > > |
+	# $(CC) -o $(EXE) $(0BJ) $(CFLAGS)
+
+
+$(OBJ): $(SRC)
+	$(CC) -c $(SRC) $(I_FLAG)
+
 
 clean:
 	rm -f $(OBJ)
 
+
 clobber: clean
 	rm $(EXE)
-	rm output.csv
+	rm -f output.csv
