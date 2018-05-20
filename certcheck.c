@@ -26,11 +26,13 @@ void validate_cert(FILE* output, char* path_to_cert, char* url);
 
 /* DEBUGGING -- REMOVE & UNCOMMENT BELOW ------------------------------- */
 int validate_dates(X509 *cert, char* path_to_cert);
+int validate_san(int cn_valid, X509* cert, char* url);
 /* --------------------------------------------------------------------- */
 // int validate_dates(X509 *cert);
-int validate_name(X509 *cert, char* url);
+// int validate_san(X509* cert, char* url);
+int validate_domain(X509 *cert, char* url);
 int validate_cn(X509 *cert, char* url);
-int validate_san(int cn_valid, X509* cert, char* url);
+int validate_name(char* buf, char* url);
 
 
 /* ----------------------------- Main Program ------------------------------- */
@@ -124,7 +126,7 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
     }
 
     // validate domain name
-    if (!validate_name(cert, url)) {
+    if (!validate_domain(cert, url)) {
         fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
         return;
     }
@@ -224,7 +226,7 @@ int validate_dates(X509 *cert, char* path_to_cert) {
  * @param url   to which the cert is supposed to belong to
  * @return whether the name is valid (1) or not (0)
  */
-int validate_name(X509 *cert, char* url) {
+int validate_domain(X509 *cert, char* url) {
     // check whether CommonName (CN) corresponds to URL
     int cn_valid = validate_cn(cert, url);
 
@@ -250,34 +252,9 @@ int validate_cn(X509 *cert, char* url) {
         exit(EXIT_FAILURE);
     }
 
-    // check if CN matches the URL
-    if (!strncmp(url, cn_buf, strlen(url))) {
-        /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-15s  CN matches URL (1)\n", "");
-        /* ------------------------------------------------------------- */
-
-        free(cn_buf);
-        return VALID;
-    } else {
-        // maybe it matches through a wildcard?
-        char* wildcard;
-        if (cn_buf[0] == '*') {
-            char* cn_buf_temp = cn_buf + 1;
-            wildcard = strstr(url, cn_buf_temp);
-
-            if (wildcard != NULL) {
-                /* DEBUGGING -- REMOVE --------------------------------- */
-                DLOG("%-15s  CN (wildcard) matches URL (1)\n", "");
-                /* ----------------------------------------------------- */
-
-                // it _does_ match through a wildcard!
-                free(cn_buf);
-                return VALID;
-            }
-        }
-    }
-
-    return INVALID;
+    int is_valid = validate_name(cn_buf, url);
+    free(cn_buf);
+    return is_valid;
 }
 
 
@@ -289,7 +266,10 @@ int validate_cn(X509 *cert, char* url) {
  * @param url       to which the cert's Subject Alternative Name is compared
  * @return whether they correspond (1) or not (0)
  */
+/* DEBUGGING -- REMOVE & UNCOMMENT BELOW ------------------------------- */
 int validate_san(int cn_valid, X509* cert, char* url) {
+/* --------------------------------------------------------------------- */
+// int validate_san(X509* cert, char* url) {
     int loc = X509_get_ext_by_NID(cert, NID_subject_alt_name, -1);
     if (loc == -1) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
@@ -337,11 +317,52 @@ int validate_san(int cn_valid, X509* cert, char* url) {
         char* flush = strtok_r(entry, ":", &end_san);
         char* san   = strtok_r(NULL, ":", &end_san);
 
+        if (validate_name(san, url)) {
+            return VALID;
+        }
+
         entry = strtok_r(NULL, ",", &end_entry);
     }
 
     BIO_free_all(bio);
     free(buf);
+
+    return INVALID;
+}
+
+
+/**
+ * Checks whether any of the cert's name (can be CommonName or Subject Alternative
+ * Name) correspond to the cert's URL.
+ * @param name  of the cert (CommonName or Subject Alternative Name)
+ * @param url   to which the name will be compared
+ * @return whether `name` and `url` correspond
+ */
+int validate_name(char* name, char* url) {
+    // check if name matches URL outright
+    if (!strncmp(url, name, strlen(url))) {
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        DLOG("%-15s  Name matches URL (1)\n", "");
+        /* ------------------------------------------------------------- */
+
+        return VALID;
+    } else {
+        // maybe it matches through a wildcard?
+        if (name[0] == '*') {
+            char* name_temp = name + 1;
+            char* wildcard;
+
+            wildcard = strstr(url, name_temp);
+            if (wildcard != NULL) {
+                /* DEBUGGING -- REMOVE --------------------------------- */
+                DLOG("%-15s  Wildcard matches URL (1)\n", "");
+                /* ----------------------------------------------------- */
+
+                // it _does_ match!
+                return VALID;
+            }
+        }
+    }
 
     return INVALID;
 }
