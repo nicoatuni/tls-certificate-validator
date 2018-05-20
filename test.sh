@@ -1,7 +1,11 @@
 mv certcheck.c sample/
 mv Makefile sample/
 cd sample/
-make
+if [ "$1" == 1 ]; then
+	make DEBUG=1
+else
+	make
+fi
 ./certcheck sample_input.csv
 make clean
 rm certcheck

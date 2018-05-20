@@ -8,6 +8,14 @@
 #include <openssl/err.h>
 #include <openssl/asn1.h>
 
+/* DEBUGGING -- REMOVE ------------------------------------------------- */
+#ifdef DEBUG
+#define DLOG(...) printf(__VA_ARGS__)
+#else
+#define DLOG(...) do {} while(0)
+#endif
+/* --------------------------------------------------------------------- */
+
 # define LINE_LENGTH 1024
 # define VALID 1
 # define INVALID 0
@@ -46,7 +54,7 @@ int main(int argc, char const *argv[]) {
     }
 
     /* DEBUGGING -- REMOVE --------------------------------------------- */
-    printf("START DEBUGGING\n=========================================\n");
+    DLOG("START DEBUGGING\n=========================================\n");
     /* ----------------------------------------------------------------- */
 
     // read the contents of the input csv file
@@ -60,9 +68,9 @@ int main(int argc, char const *argv[]) {
     }
 
     /* DEBUGGING -- REMOVE --------------------------------------------- */
-    printf("=========================================\n");
+    DLOG("=========================================\n");
     /* ----------------------------------------------------------------- */
-    
+
     // close the input and output csv files
     fclose(output);
     fclose(fp);
@@ -180,7 +188,7 @@ int validate_dates(X509 *cert, char* path_to_cert) {
     // hence, invalid cert
     if (day > 0 || sec > 0) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        printf("%-15s: `notBefore` is in the future (0)\n", path_to_cert);
+        DLOG("%-15s: `notBefore` is in the future (0)\n", path_to_cert);
         /* ------------------------------------------------------------- */
         return INVALID;
     }
@@ -195,14 +203,14 @@ int validate_dates(X509 *cert, char* path_to_cert) {
     // if `day` or `sec` is negative, `notAfter` is in the past
     if (day < 0 || sec < 0) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        printf("%-15s: `notAfter` is in the past (0)\n", path_to_cert);
+        DLOG("%-15s: `notAfter` is in the past -- expired (0)\n", path_to_cert);
         /* ------------------------------------------------------------- */
         return INVALID;
     }
 
     // dates are valid!
     /* DEBUGGING -- REMOVE ----------------------------------------- */
-    printf("%-15s: Dates are valid (1)\n", path_to_cert);
+    DLOG("%-15s: Dates are valid (1)\n", path_to_cert);
     /* ------------------------------------------------------------- */
     return VALID;
 }
@@ -229,7 +237,7 @@ int validate_name(X509 *cert, char* url) {
     // check if CN matches the URL
     if (!strncmp(url, cn_buf, strlen(url))) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        printf("%-15s  CN matches URL (1)\n", "");
+        DLOG("%-15s  CN matches URL (1)\n", "");
         /* ------------------------------------------------------------- */
 
         free(cn_buf);
@@ -242,7 +250,7 @@ int validate_name(X509 *cert, char* url) {
             wildcard = strstr(url, cn_buf_temp);
             if (wildcard != NULL) {
                 /* DEBUGGING -- REMOVE --------------------------------- */
-                printf("%-15s  CN (wildcard) matches URL (1)\n", "");
+                DLOG("%-15s  CN (wildcard) matches URL (1)\n", "");
                 /* ----------------------------------------------------- */
 
                 free(cn_buf);
@@ -256,6 +264,9 @@ int validate_name(X509 *cert, char* url) {
     // if the cert doesn't have any SAN's, it's invalid
     int loc = X509_get_ext_by_NID(cert, NID_subject_alt_name, -1);
     if (loc == -1) {
+        /* DEBUGGING -- REMOVE --------------------------------- */
+        DLOG("%-15s  CN does not match URL + No SAN (0)\n", "");
+        /* ----------------------------------------------------- */
         return INVALID;
     }
 

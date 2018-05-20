@@ -6,7 +6,7 @@ CC	= gcc
 CFLAGS	= -Wall -lssl -lcrypto
 
 # > > > > > > > > > > > > > > > > > > > > > > > > > > > |
-# REMOVE THESE BEFORE SUBMISSION
+# REMOVE
 I_FLAG	= -I/Users/nico/miniconda3/envs/util/include/
 L_FLAG	= -L/Users/nico/miniconda3/envs/util/lib/
 # > > > > > > > > > > > > > > > > > > > > > > > > > > > |
@@ -21,15 +21,21 @@ all: $(EXE)
 
 $(EXE): $(OBJ)
 	# > > > > > > > > > > > > > > > > > > > > > > > > |
-	# REMOVE THIS AND UNCOMMENT THE ONE BELOW IT
+	# REMOVE & UNCOMMENT BELOW
 	$(CC) -o $(EXE) $(CFLAGS) $(L_FLAG) $(OBJ)
 	# > > > > > > > > > > > > > > > > > > > > > > > > |
-	# $(CC) -o $(EXE) $(0BJ) $(CFLAGS)
+	# $(CC) -o $(EXE) $(CFLAGS) $(0BJ)
 
 
 $(OBJ): $(SRC)
+# > > > > > > > > > > > > > > > > > > > > > > > > > > |
+ifeq ($(DEBUG),1)
+	$(CC) -c $(SRC) $(I_FLAG) -DDEBUG
+else
 	$(CC) -c $(SRC) $(I_FLAG)
-
+	# $(CC) -c $(SRC)				# ONLY KEEP THIS
+endif
+# > > > > > > > > > > > > > > > > > > > > > > > > > > |
 
 clean:
 	rm -f $(OBJ)
