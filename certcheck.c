@@ -33,6 +33,7 @@ int validate_san(int cn_valid, X509* cert, char* url);
 int validate_domain(X509 *cert, char* url);
 int validate_cn(X509 *cert, char* url);
 int validate_name(char* buf, char* url);
+int validate_key_length(X509 *cert);
 
 
 /* ----------------------------- Main Program ------------------------------- */
@@ -131,10 +132,16 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
         return;
     }
 
+    // validate key length
+    if (!validate_key_length(cert)) {
+        fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
+        return;
+    }
+
     
     // the minimum checking you are expected to do is as follows:
     // 1. [X] validation of dates, both the `Not Before` and `Not After` dates
-    // 2. [ ] domain name validation, including SAN extension, and wildcards
+    // 2. [X] domain name validation, including SAN extension, and wildcards
     // 3. [ ] minimum key length of 2048 bits for RSA
     // 4. [ ] correct key usage, including extensions
 
@@ -365,4 +372,14 @@ int validate_name(char* name, char* url) {
     }
 
     return INVALID;
+}
+
+
+/**
+ * Checks whether the cert's minimum RSA key length is 2048 bits.
+ * @param cert  whose key length is to be validated
+ * @return whether key length is at least 2048 bits (1) or not (0)
+ */
+int validate_key_length(X509 *cert) {
+    
 }
