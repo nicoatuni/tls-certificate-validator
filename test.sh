@@ -7,6 +7,7 @@ mv certcheck sample/
 cd sample
 ./certcheck sample_input.csv
 cat output.csv
+./testscript.sh
 rm output.csv
 rm certcheck
 cd ../
