@@ -16,31 +16,29 @@ OBJ	= certcheck.o
 EXE	= certcheck
 
 
-all: $(EXE)
-
-
 $(EXE): $(OBJ)
 	# > > > > > > > > > > > > > > > > > > > > > > > > |
 	# REMOVE & UNCOMMENT BELOW
-	$(CC) -o $(EXE) $(CFLAGS) $(L_FLAG) $(OBJ)
+	$(CC) -o $(EXE) $(OBJ) $(CFLAGS) $(L_FLAG) $(I_FLAG)
 	# > > > > > > > > > > > > > > > > > > > > > > > > |
-	# $(CC) -o $(EXE) $(CFLAGS) $(0BJ)
+	# $(CC) -o $(EXE) $(0BJ) $(CFLAGS)
 
 
-$(OBJ): $(SRC)
 # > > > > > > > > > > > > > > > > > > > > > > > > > > |
+# REMOVE
+$(OBJ): $(SRC)
 ifeq ($(DEBUG),1)
 	$(CC) -c $(SRC) $(I_FLAG) -DDEBUG
 else
 	$(CC) -c $(SRC) $(I_FLAG)
-	# $(CC) -c $(SRC)				# ONLY KEEP THIS
 endif
 # > > > > > > > > > > > > > > > > > > > > > > > > > > |
+
 
 clean:
 	rm -f $(OBJ)
 
 
 clobber: clean
-	rm $(EXE)
+	rm -f $(EXE)
 	rm -f output.csv
