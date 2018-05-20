@@ -7,6 +7,8 @@
 #include <openssl/pem.h>
 #include <openssl/err.h>
 #include <openssl/asn1.h>
+#include <openssl/evp.h>
+#include <openssl/rsa.h>
 
 /* DEBUGGING -- REMOVE ------------------------------------------------- */
 #ifdef DEBUG
@@ -20,6 +22,8 @@
 # define VALID 1
 # define INVALID 0
 # define CN_BUF_SIZE 1024
+# define BYTE_TO_BIT 8
+# define MIN_KEY_LENGTH 2048
 
 /* ---------------------- Helper function prototype ------------------------- */
 void validate_cert(FILE* output, char* path_to_cert, char* url);
@@ -313,8 +317,6 @@ int validate_san(int cn_valid, X509* cert, char* url) {
     memcpy(buf, bptr->data, bptr->length);
     buf[bptr->length] = '\0';
 
-    printf("%s\n", buf);
-
     // get the first SAN
     char* end_entry;
     char* entry = strtok_r(buf, ",", &end_entry);
@@ -381,5 +383,20 @@ int validate_name(char* name, char* url) {
  * @return whether key length is at least 2048 bits (1) or not (0)
  */
 int validate_key_length(X509 *cert) {
-    
+    // obtain the key from the cert
+    EVP_PKEY* public_key = X509_get_pubkey(cert);
+
+    // get the size of the key, although in bytes
+    RSA* rsa_key = EVP_PKEY_get1_RSA(public_key);
+    int key_length = RSA_size(rsa_key);
+
+    // need to be freed, as per the documentation
+    RSA_free(rsa_key);
+    EVP_PKEY_free(public_key);
+
+    // check if key length (in bits) is at least 2048 bits
+    if ((key_length * BYTE_TO_BIT) >= MIN_KEY_LENGTH) {
+        return VALID;
+    }
+    return INVALID;
 }
