@@ -38,6 +38,7 @@ int validate_domain(X509 *cert, char* url);
 int validate_cn(X509 *cert, char* url);
 int validate_name(char* buf, char* url);
 int validate_key_length(X509 *cert);
+int validate_basic_constraints(X509* cert);
 
 
 /* ----------------------------- Main Program ------------------------------- */
@@ -138,6 +139,12 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
 
     // validate key length
     if (!validate_key_length(cert)) {
+        fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
+        return;
+    }
+
+    // validate BasicConstraints
+    if (!validate_basic_constraints(cert)) {
         fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
         return;
     }
@@ -409,5 +416,54 @@ int validate_key_length(X509 *cert) {
     /* DEBUGGING -- REMOVE --------------------------------------------- */
     DLOG("%-15s  %-30s (0)\n", "", "Key length < 2048 bits");
     /* ----------------------------------------------------------------- */
+    return INVALID;
+}
+
+
+/**
+ * 
+ * @param cert  whose BasicConstraints is to be validated
+ * @return whether the cert can act as a CA (0) or not (1)
+ */
+int validate_basic_constraints(X509* cert) {
+    int loc = X509_get_ext_by_NID(cert, NID_basic_constraints, -1);
+    if (loc == -1) {
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        DLOG("%-15s  %-30s (0)\n", "", "Basic Constraints extension not present");
+        /* ------------------------------------------------------------- */
+        return INVALID;
+    }
+
+    // BasicConstraints extension is present; obtain its value
+    X509_EXTENSION *ex = X509_get_ext(cert, loc);
+    BUF_MEM *bptr = NULL;
+    char *buf = NULL;
+    BIO *bio = BIO_new(BIO_s_mem());
+
+    if (!X509V3_EXT_print(bio, ex, 0, 0)) {
+        fprintf(stderr, "Error in reading extensions\n");
+    }
+
+    BIO_flush(bio);
+    BIO_get_mem_ptr(bio, &bptr);
+
+    // bptr->data is not NULL terminated - add null character
+    buf = (char *)malloc((bptr->length + 1) * sizeof(char));
+    memcpy(buf, bptr->data, bptr->length);
+    buf[bptr->length] = '\0';
+
+    char* flush = strtok(buf, ":");
+    char* is_ca = strtok(NULL, ":");
+
+    if (!strncmp(is_ca, "FALSE", strlen("FALSE"))) {
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        DLOG("%-15s  %-30s (1)\n", "", "CA = False");
+        /* ------------------------------------------------------------- */
+        return VALID;
+    }
+
+    /* DEBUGGING -- REMOVE ----------------------------------------- */
+    DLOG("%-15s  %-30s (0)\n", "", "CA = True");
+    /* ------------------------------------------------------------- */
     return INVALID;
 }
