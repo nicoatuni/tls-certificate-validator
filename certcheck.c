@@ -24,7 +24,6 @@
 # define CN_BUF_SIZE 1024
 # define BYTE_TO_BIT 8
 # define MIN_KEY_LENGTH 2048
-# define SERVER_AUTH "TLS Web Server Authentication"
 
 /* ---------------------- Helper function prototype ------------------------- */
 void validate_cert(FILE* output, char* path_to_cert, char* url);
@@ -518,11 +517,17 @@ int validate_ext_key_usage(X509* cert) {
     memcpy(buf, bptr->data, bptr->length);
     buf[bptr->length] = '\0';
 
-    if (!strncmp(buf, SERVER_AUTH, strlen(SERVER_AUTH))) {
-        /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("Server Auth (OK)\n");
-        /* ------------------------------------------------------------- */
-        return VALID;
+    char* usage = strtok(buf, ",");
+
+    while (usage != NULL) {
+        if (!strncmp(usage, LN_server_auth, strlen(LN_server_auth))) {
+            /* DEBUGGING -- REMOVE ----------------------------------------- */
+            DLOG("Server Auth (OK)\n");
+            /* ------------------------------------------------------------- */
+            return VALID;
+        }
+
+        usage = strtok(NULL, ",");
     }
 
     /* DEBUGGING -- REMOVE ----------------------------------------- */
