@@ -263,6 +263,10 @@ int validate_cn(X509 *cert, char* url) {
         exit(EXIT_FAILURE);
     }
 
+    /* DEBUGGING -- REMOVE --------------------------------------------- */
+    DLOG("%-15s  CN: ", "");
+    /* ----------------------------------------------------------------- */
+
     int is_valid = validate_name(cn_buf, url);
     free(cn_buf);
     return is_valid;
@@ -326,6 +330,9 @@ int validate_san(int cn_valid, X509* cert, char* url) {
         char* flush = strtok_r(entry, ":", &end_san);
         char* san   = strtok_r(NULL, ":", &end_san);
 
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        DLOG("%-15s  SAN: ", "");
+        /* ------------------------------------------------------------- */
         if (validate_name(san, url)) {
             return VALID;
         }
@@ -351,7 +358,7 @@ int validate_name(char* name, char* url) {
     // check if name matches URL outright
     if (!strncmp(url, name, strlen(url))) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-15s  Name matches URL (1)\n", "");
+        DLOG("Name matches URL (1)\n");
         /* ------------------------------------------------------------- */
 
         return VALID;
@@ -364,7 +371,7 @@ int validate_name(char* name, char* url) {
             wildcard = strstr(url, name_temp);
             if (wildcard != NULL) {
                 /* DEBUGGING -- REMOVE --------------------------------- */
-                DLOG("%-15s  Wildcard matches URL (1)\n", "");
+                DLOG("Wildcard matches URL (1)\n");
                 /* ----------------------------------------------------- */
 
                 // it _does_ match!
@@ -396,7 +403,14 @@ int validate_key_length(X509 *cert) {
 
     // check if key length (in bits) is at least 2048 bits
     if ((key_length * BYTE_TO_BIT) >= MIN_KEY_LENGTH) {
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        DLOG("%-15s  Key length >= 2048 bits (1)\n", "");
+        /* ------------------------------------------------------------- */
+
         return VALID;
     }
+    /* DEBUGGING -- REMOVE --------------------------------------------- */
+    DLOG("%-15s  Key length < 2048 bits (0)\n", "");
+    /* ----------------------------------------------------------------- */
     return INVALID;
 }
