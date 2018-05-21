@@ -233,6 +233,8 @@ int validate_san(X509* cert, char* url) {
         return INVALID;
     }
 
+    
+
     // parse the buffer and extract the individual SAN's
     char* end_entry;
     char* entry = strtok_r(buf, ",", &end_entry);
@@ -322,14 +324,18 @@ int validate_basic_constraints(X509* cert) {
     BASIC_CONSTRAINTS* bs;
     bs = X509_get_ext_d2i(cert, NID_basic_constraints, NULL, NULL);
 
+    int is_valid;
     if (bs != NULL) {
-        // bs->ca is 1 if CA:TRUE and vice versa, so we return its oppposite,
+        // bs->ca is 1 if CA:TRUE and vice versa, so we want its oppposite,
         // since we only consider the cert to be valid if CA:FALSE
-        return !bs->ca;
+        is_valid = !bs->ca;
+    } else {
+        is_valid = INVALID;
     }
 
-    // handle the case where cert has no BasicConstraints or something goes wrong
-    return INVALID;
+    BASIC_CONSTRAINTS_free(bs);
+
+    return is_valid;
 }
 
 
