@@ -458,14 +458,27 @@ int validate_basic_constraints(X509* cert) {
     memcpy(buf, bptr->data, bptr->length);
     buf[bptr->length] = '\0';
 
-    char* flush = strtok(buf, ":");
-    char* is_ca = strtok(NULL, ":");
+    char* end_entry;
+    char* entry = strtok_r(buf, ",", &end_entry);
 
-    if (!strncmp(is_ca, "FALSE", strlen("FALSE"))) {
-        /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("CA: False (OK), ");
-        /* ------------------------------------------------------------- */
-        return VALID;
+    while (entry != NULL) {
+        char* end_is_ca;
+        char* flush = strtok_r(entry, ":", &end_is_ca);
+        if (strncmp(flush, "CA", strlen("CA"))) {
+            entry = strtok_r(NULL, ",", &end_entry);
+            continue;
+        }
+
+        char* is_ca = strtok_r(NULL, ":", &end_is_ca);
+
+        if (!strncmp(is_ca, "FALSE", strlen("FALSE"))) {
+            /* DEBUGGING -- REMOVE ----------------------------------------- */
+            DLOG("CA: False (OK), ");
+            /* ------------------------------------------------------------- */
+            return VALID;
+        }
+
+        entry = strtok_r(NULL, ",", &end_entry);
     }
 
     /* DEBUGGING -- REMOVE ----------------------------------------- */
