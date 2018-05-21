@@ -14,6 +14,7 @@
 #include <openssl/asn1.h>
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
+#include <openssl/safestack.h>
 
 #define LINE_LENGTH 1024
 #define VALID 1
@@ -233,8 +234,6 @@ int validate_san(X509* cert, char* url) {
         return INVALID;
     }
 
-    
-
     // parse the buffer and extract the individual SAN's
     char* end_entry;
     char* entry = strtok_r(buf, ",", &end_entry);
@@ -329,39 +328,38 @@ int validate_basic_constraints(X509* cert) {
         // bs->ca is 1 if CA:TRUE and vice versa, so we want its oppposite,
         // since we only consider the cert to be valid if CA:FALSE
         is_valid = !bs->ca;
+        BASIC_CONSTRAINTS_free(bs);
     } else {
         is_valid = INVALID;
     }
-
-    BASIC_CONSTRAINTS_free(bs);
 
     return is_valid;
 }
 
 
 /**
- * Checks whether the cert is for TLS Web Server Authentication.
+ * Checks whether one of the cert's usages is for TLS Web Server Authentication.
  * @param cert  whose Extended Key Usage(s) is to be validated
  * @return whether the cert is for serverAuth (1) or not (0)
  */
 int validate_ext_key_usage(X509* cert) {
-    // obtain the buffer containing Extended Key Usage, if it exists
-    char* buf = get_extension_buf(cert, NID_ext_key_usage);
-    if (buf == NULL) {
-        return INVALID;
-    }
+    // obtain the cert's Extended Key Usage(s)
+    EXTENDED_KEY_USAGE* ext_key_usage;
+    ext_key_usage = X509_get_ext_d2i(cert, NID_ext_key_usage, NULL, NULL);
 
-    // parse the buffer and check whether the cert is for server authentication
-    char* usage = strtok(buf, ",");
-    while (usage != NULL) {
-        if (!strncmp(usage, LN_server_auth, strlen(LN_server_auth))) {
-            return VALID;
+    if (ext_key_usage != NULL) {
+        int i;
+        // iterate over all of the usage(s)
+        for (i = 0; i < sk_ASN1_OBJECT_num(ext_key_usage); i++) {
+            int nid = OBJ_obj2nid(sk_ASN1_OBJECT_value(ext_key_usage, i));
+
+            // only valid if the usage is for TLS Web Server Authentication
+            if (nid == NID_server_auth) {
+                return VALID;
+            }
         }
-
-        usage = strtok(NULL, ",");
+        EXTENDED_KEY_USAGE_free(ext_key_usage);
     }
-
-    free(buf);
 
     return INVALID;
 }
