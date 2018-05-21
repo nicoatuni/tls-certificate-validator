@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <openssl/bio.h>
@@ -13,12 +14,12 @@
 #define LINE_LENGTH 1024
 #define VALID 1
 #define INVALID 0
-#define CN_BUF_SIZE 1024
+#define CN_SIZE 1024
 #define BYTE_TO_BIT 8
 #define MIN_KEY_LENGTH 2048
 
 /* ---------------------- Helper function prototype ------------------------- */
-void validate_cert(FILE* output, char* path_to_cert, char* url);
+int validate_cert(char* path_to_cert, char* url);
 int validate_dates(X509 *cert);
 int validate_domain(X509 *cert, char* url);
 int validate_cn(X509 *cert, char* url);
@@ -27,6 +28,7 @@ int validate_name(char* buf, char* url);
 int validate_key_length(X509 *cert);
 int validate_basic_constraints(X509* cert);
 int validate_ext_key_usage(X509* cert);
+char* get_extension_buf(X509* cert, int nid);
 
 
 /* ----------------------------- Main Program ------------------------------- */
@@ -57,8 +59,9 @@ int main(int argc, char const *argv[]) {
         char* path_to_cert = strtok(line, ",");
         char* url = strtok(NULL, ",\n");
 
-        // handle certificate validation
-        validate_cert(output, path_to_cert, url);
+        // validate the cert and write the results into `output`
+        int is_valid = validate_cert(path_to_cert, url);
+        fprintf(output, "%s,%s,%d\n", path_to_cert, url, is_valid);
     }
 
     // close the input and output csv files
@@ -71,16 +74,14 @@ int main(int argc, char const *argv[]) {
 
 /* -------------------------------------------------------------------------- */
 /**
- * Checks if the certificate located in `path_to_cert` is valid and writes the
- * output to `output`.
- * @param output file
- * @param path_to_cert path to the certificate
- * @param url from which the certificate belongs
+ * Checks if the certificate located in `path_to_cert` is valid.
+ * @param path_to_cert  path to the certificate
+ * @param url           from which the certificate belongs
+ * @return whether the cert is valid (1) or not (0)
  */
-void validate_cert(FILE* output, char* path_to_cert, char* url) {
+int validate_cert(char* path_to_cert, char* url) {
     BIO *certificate_bio = NULL;
     X509 *cert = NULL;
-    // STACK_OF(X509_EXTENSION) * ext_list;
 
     // initialise OpenSSL
     OpenSSL_add_all_algorithms();
@@ -92,58 +93,47 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
 
     // read certificate into BIO
     if (!(BIO_read_filename(certificate_bio, path_to_cert))) {
-        fprintf(stderr, "Error in reading cert BIO filename");
+        fprintf(stderr, "Error in reading cert BIO filename\n");
         exit(EXIT_FAILURE);
     }
-
     if (!(cert = PEM_read_bio_X509(certificate_bio, NULL, 0, NULL))) {
-        fprintf(stderr, "Error in loading certificate");
+        fprintf(stderr, "Error in loading certificate\n");
         exit(EXIT_FAILURE);
     }
 
-    // cert contains the x509 certificate and is ready to be validated!
+    /* cert contains the X509 certificate and is ready to be validated */
+
     // first, check the dates
     if (!validate_dates(cert)) {
-        fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
-        return;
+        return INVALID;
     }
 
     // validate domain name
     if (!validate_domain(cert, url)) {
-        fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
-        return;
+        return INVALID;
     }
 
     // validate key length
     if (!validate_key_length(cert)) {
-        fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
-        return;
+        return INVALID;
     }
 
     // validate BasicConstraints
     if (!validate_basic_constraints(cert)) {
-        fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
-        return;
+        return INVALID;
     }
 
     // validate Extended Key Usage
     if (!validate_ext_key_usage(cert)) {
-        fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
-        return;
+        return INVALID;
     }
 
-    // Part C Advanced Certificate Checking (5 marks)
-    // – Correctly validates minimum RSA key length of 2048 bits (1 mark)
-    // – Correctly validates key usage and constraints (2 mark)
-    //      ∗ BasicConstraints includes “CA:FALSE”
-    //      ∗ Enhanced Key Usage includes “TLS Web Server Authentication”
-    // – Correctly validates Subject Alternative Name extension (2 marks)
-
-    // write output into the output file
-    fprintf(output, "%s,%s,%d\n", path_to_cert, url, VALID);
-
+    // no longer need cert, free it
     X509_free(cert);
     BIO_free_all(certificate_bio);
+
+    // cert passes all those validation checks; it's valid!
+    return VALID;
 }
 
 
@@ -162,8 +152,7 @@ int validate_dates(X509 *cert) {
         exit(EXIT_FAILURE);
     }
 
-    // if `day` or `sec` is positive, `notBefore` is in the future
-    // hence, invalid cert
+    // if `day` or `sec` is +ve, `notBefore` is in the future; hence, invalid cert
     if (day > 0 || sec > 0) {
         return INVALID;
     }
@@ -175,7 +164,7 @@ int validate_dates(X509 *cert) {
         exit(EXIT_FAILURE);
     }
 
-    // if `day` or `sec` is negative, `notAfter` is in the past
+    // if `day` or `sec` is negative, `notAfter` is in the past (expired)
     if (day < 0 || sec < 0) {
         return INVALID;
     }
@@ -188,8 +177,8 @@ int validate_dates(X509 *cert) {
 /**
  * Checks the domain name of the cert.
  * @param cert  whose name is to be validated
- * @param url   to which the cert is supposed to belong to
- * @return whether the name is valid (1) or not (0)
+ * @param url   to which the cert is supposed to belong
+ * @return whether the domain name is valid (1) or not (0)
  */
 int validate_domain(X509 *cert, char* url) {
     // check whether CommonName (CN) corresponds to URL
@@ -203,67 +192,54 @@ int validate_domain(X509 *cert, char* url) {
 
 
 /**
- * Checks whether the cert's CommonName corresponds to its URL.
+ * Checks whether the cert's CommonName matches its URL.
  * @param cert  whose CommonName is to be checked
  * @param url   to which the cert's CommonName is compared
- * @return whether the cert's CommonName corresponds to the URL (1) or not (0)
+ * @return whether the cert's CommonName matches the URL (1) or not (0)
  */
 int validate_cn(X509 *cert, char* url) {
+    char* cn = (char*)malloc(CN_SIZE * sizeof(char));
+    assert(cn);
+
     // obtain the cert's CN
-    char* cn_buf = (char*)malloc(CN_BUF_SIZE * sizeof(char));
     X509_NAME *common_name = X509_get_subject_name(cert);
-    if (X509_NAME_get_text_by_NID(common_name, NID_commonName, cn_buf, CN_BUF_SIZE) < 0) {
+    if (X509_NAME_get_text_by_NID(common_name, NID_commonName, cn, CN_SIZE) < 0) {
         fprintf(stderr, "CN NOT FOUND\n");
         exit(EXIT_FAILURE);
     }
 
-    int is_valid = validate_name(cn_buf, url);
-    free(cn_buf);
+    // check whether the cert's CN matches outright or through wildcards
+    int is_valid = validate_name(cn, url);
+    free(cn);
     return is_valid;
 }
 
 
 /**
- * Checks whether any of the cert's Subject Alternative Names corresponds to its
- * URL.
- * @param cn_valid  whether the cert's CommonName corresponds to its URL
- * @param cert      whose Subject Alternative Name is to be checked
- * @param url       to which the cert's Subject Alternative Name is compared
- * @return whether they correspond (1) or not (0)
+ * Checks whether any of the cert's Subject Alternative Names (SAN) corresponds
+ * to its URL.
+ * @param cert  whose SAN is to be checked
+ * @param url   to which the cert's SAN is compared
+ * @return whether they match (1) or not (0)
  */
 int validate_san(X509* cert, char* url) {
-    int loc = X509_get_ext_by_NID(cert, NID_subject_alt_name, -1);
-    if (loc == -1) {
+    // obtain the buffer containing the SAN's, if it exists
+    char* buf = get_extension_buf(cert, NID_subject_alt_name);
+    if (buf == NULL) {
         return INVALID;
     }
 
-    // SAN(s) are present; obtain their value(s)
-    X509_EXTENSION *ex = X509_get_ext(cert, loc);
-    BUF_MEM *bptr = NULL;
-    char *buf = NULL;
-    BIO *bio = BIO_new(BIO_s_mem());
-
-    if (!X509V3_EXT_print(bio, ex, 0, 0)) {
-        fprintf(stderr, "Error in reading extensions\n");
-    }
-
-    BIO_flush(bio);
-    BIO_get_mem_ptr(bio, &bptr);
-
-    // bptr->data is not NULL terminated - add null character
-    buf = (char *)malloc((bptr->length + 1) * sizeof(char));
-    memcpy(buf, bptr->data, bptr->length);
-    buf[bptr->length] = '\0';
-
-    // get the first SAN
+    // parse the buffer and extract the individual SAN's
     char* end_entry;
     char* entry = strtok_r(buf, ",", &end_entry);
 
+    // exhaust the SAN's until we find one that matches
     while (entry != NULL) {
         char* end_san;
-        char* flush = strtok_r(entry, ":", &end_san);
-        char* san   = strtok_r(NULL, ":", &end_san);
+        char* flush = strtok_r(entry, ":", &end_san);   // 'DNS' (unused)
+        char* san   = strtok_r(NULL, ":", &end_san);    // the actual SAN value
 
+        // check whether the SAN matches outright or through wildcards
         if (validate_name(san, url)) {
             return VALID;
         }
@@ -271,35 +247,32 @@ int validate_san(X509* cert, char* url) {
         entry = strtok_r(NULL, ",", &end_entry);
     }
 
-    BIO_free_all(bio);
-    free(buf);
+    free(buf);      // buf is dynamically allocated in get_extension_buf(...)
 
+    // went through all of the SAN's; no match
     return INVALID;
 }
 
 
 /**
- * Checks whether any of the cert's name (can be CommonName or Subject Alternative
- * Name) correspond to the cert's URL.
+ * Checks whether `name` matches `URL`, outright or through wildcards.
  * @param name  of the cert (CommonName or Subject Alternative Name)
  * @param url   to which the name will be compared
- * @return whether `name` and `url` correspond
+ * @return whether `name` and `url` match (1) or not (0)
  */
 int validate_name(char* name, char* url) {
     // check if name matches URL outright
     if (!strncmp(url, name, strlen(url))) {
         return VALID;
-    } else {
-        // maybe it matches through a wildcard?
-        if (name[0] == '*') {
-            char* name_temp = name + 1;
-            char* wildcard;
-            wildcard = strstr(url, name_temp);
+    }
 
-            if (wildcard != NULL) {
-                // it _does_ match!
-                return VALID;
-            }
+    // okay, how about through wildcards?
+    if (name[0] == '*') {
+        char* name_temp = name + 1;
+        char* wildcard = strstr(url, name_temp);
+
+        if (wildcard != NULL) {
+            return VALID;       // it's a match!
         }
     }
 
@@ -336,47 +309,33 @@ int validate_key_length(X509 *cert) {
 
 
 /**
- * 
+ * Checks whether the cert can act as a CA or not, based on its BasicConstraints.
  * @param cert  whose BasicConstraints is to be validated
  * @return whether the cert can act as a CA (0) or not (1)
  */
 int validate_basic_constraints(X509* cert) {
-    int loc = X509_get_ext_by_NID(cert, NID_basic_constraints, -1);
-    if (loc == -1) {
+    // obtain the buffer containing BasicConstraints, if it exists
+    char* buf = get_extension_buf(cert, NID_basic_constraints);
+    if (buf == NULL) {
         return INVALID;
     }
 
-    // BasicConstraints extension is present; obtain its value
-    X509_EXTENSION *ex = X509_get_ext(cert, loc);
-    BUF_MEM *bptr = NULL;
-    char *buf = NULL;
-    BIO *bio = BIO_new(BIO_s_mem());
-
-    if (!X509V3_EXT_print(bio, ex, 0, 0)) {
-        fprintf(stderr, "Error in reading extensions\n");
-    }
-
-    BIO_flush(bio);
-    BIO_get_mem_ptr(bio, &bptr);
-
-    // bptr->data is not NULL terminated - add null character
-    buf = (char *)malloc((bptr->length + 1) * sizeof(char));
-    memcpy(buf, bptr->data, bptr->length);
-    buf[bptr->length] = '\0';
-
+    // parse the buffer and check whether CA is TRUE or FALSE
     char* end_entry;
     char* entry = strtok_r(buf, ",", &end_entry);
 
     while (entry != NULL) {
         char* end_is_ca;
         char* flush = strtok_r(entry, ":", &end_is_ca);
+
+        // only interested in the `CA` field's value
         if (strncmp(flush, "CA", strlen("CA"))) {
             entry = strtok_r(NULL, ",", &end_entry);
             continue;
         }
 
+        // only valid if CA is FALSE
         char* is_ca = strtok_r(NULL, ":", &end_is_ca);
-
         if (!strncmp(is_ca, "FALSE", strlen("FALSE"))) {
             return VALID;
         }
@@ -384,39 +343,26 @@ int validate_basic_constraints(X509* cert) {
         entry = strtok_r(NULL, ",", &end_entry);
     }
 
+    free(buf);
+
     return INVALID;
 }
 
 
 /**
- * 
+ * Checks whether the cert is for TLS Web Server Authentication.
+ * @param cert  whose Extended Key Usage(s) is to be validated
+ * @return whether the cert is for serverAuth (1) or not (0)
  */
 int validate_ext_key_usage(X509* cert) {
-    int loc = X509_get_ext_by_NID(cert, NID_ext_key_usage, -1);
-    if (loc == -1) {
+    // obtain the buffer containing Extended Key Usage, if it exists
+    char* buf = get_extension_buf(cert, NID_ext_key_usage);
+    if (buf == NULL) {
         return INVALID;
     }
 
-    // Extended Key Usage extension is present; obtain its value
-    X509_EXTENSION *ex = X509_get_ext(cert, loc);
-    BUF_MEM *bptr = NULL;
-    char *buf = NULL;
-    BIO *bio = BIO_new(BIO_s_mem());
-
-    if (!X509V3_EXT_print(bio, ex, 0, 0)) {
-        fprintf(stderr, "Error in reading extensions\n");
-    }
-
-    BIO_flush(bio);
-    BIO_get_mem_ptr(bio, &bptr);
-
-    // bptr->data is not NULL terminated - add null character
-    buf = (char *)malloc((bptr->length + 1) * sizeof(char));
-    memcpy(buf, bptr->data, bptr->length);
-    buf[bptr->length] = '\0';
-
+    // parse the buffer and check whether the cert is for server authentication
     char* usage = strtok(buf, ",");
-
     while (usage != NULL) {
         if (!strncmp(usage, LN_server_auth, strlen(LN_server_auth))) {
             return VALID;
@@ -425,5 +371,46 @@ int validate_ext_key_usage(X509* cert) {
         usage = strtok(NULL, ",");
     }
 
+    free(buf);
+
     return INVALID;
+}
+
+
+/**
+ * Retrieves a string buffer containing the extension's value(s). The buffer
+ * returned needs to be freed.
+ * @param cert  whose extension is to be validated
+ * @param nid   of the extension whose value(s) are being extracted
+ * @return buffer containing the extension's value(s)
+ */
+char* get_extension_buf(X509* cert, int nid) {
+    // check whether the cert actually has the extension
+    int loc = X509_get_ext_by_NID(cert, nid, -1);
+    if (loc == -1) {
+        return NULL;
+    }
+
+    // the extension is present; obtain its value(s)
+    X509_EXTENSION *ex = X509_get_ext(cert, loc);
+    BUF_MEM *bptr = NULL;
+    char *buf = NULL;
+    BIO *bio = BIO_new(BIO_s_mem());
+
+    if (!X509V3_EXT_print(bio, ex, 0, 0)) {
+        fprintf(stderr, "Error in reading extensions\n");
+    }
+
+    BIO_flush(bio);
+    BIO_get_mem_ptr(bio, &bptr);
+
+    // bptr->data is not NULL terminated - add null character
+    buf = (char *)malloc((bptr->length + 1) * sizeof(char));
+    assert(buf);
+    memcpy(buf, bptr->data, bptr->length);
+    buf[bptr->length] = '\0';
+
+    BIO_free_all(bio);
+
+    return buf;
 }
