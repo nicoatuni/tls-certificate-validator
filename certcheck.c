@@ -318,11 +318,17 @@ int validate_key_length(X509* cert) {
  * @return whether the cert can act as a CA (0) or not (1)
  */
 int validate_basic_constraints(X509* cert) {
+    // obtain the cert's BasicConstraints
     BASIC_CONSTRAINTS* bs;
     bs = X509_get_ext_d2i(cert, NID_basic_constraints, NULL, NULL);
+
     if (bs != NULL) {
+        // bs->ca is 1 if CA:TRUE and vice versa, so we return its oppposite,
+        // since we only consider the cert to be valid if CA:FALSE
         return !bs->ca;
     }
+
+    // handle the case where cert has no BasicConstraints or something goes wrong
     return INVALID;
 }
 
