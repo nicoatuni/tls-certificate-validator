@@ -1,3 +1,7 @@
+// COMP30023 Sem 1 2018 Assignment 2
+// Nico Eka Dinata < n.dinata@student.unimelb.edu.au >
+// @ndinata
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,12 +24,12 @@
 
 /* ---------------------- Helper function prototype ------------------------- */
 int validate_cert(char* path_to_cert, char* url);
-int validate_dates(X509 *cert);
-int validate_domain(X509 *cert, char* url);
-int validate_cn(X509 *cert, char* url);
+int validate_dates(X509* cert);
+int validate_domain(X509* cert, char* url);
+int validate_cn(X509* cert, char* url);
 int validate_san(X509* cert, char* url);
 int validate_name(char* buf, char* url);
-int validate_key_length(X509 *cert);
+int validate_key_length(X509* cert);
 int validate_basic_constraints(X509* cert);
 int validate_ext_key_usage(X509* cert);
 char* get_extension_buf(X509* cert, int nid);
@@ -80,8 +84,8 @@ int main(int argc, char const *argv[]) {
  * @return whether the cert is valid (1) or not (0)
  */
 int validate_cert(char* path_to_cert, char* url) {
-    BIO *certificate_bio = NULL;
-    X509 *cert = NULL;
+    BIO* certificate_bio = NULL;
+    X509* cert = NULL;
 
     // initialise OpenSSL
     OpenSSL_add_all_algorithms();
@@ -142,11 +146,11 @@ int validate_cert(char* path_to_cert, char* url) {
  * @param cert  whose dates are to be validated
  * @return whether the dates are valid (1) or not (0)
  */
-int validate_dates(X509 *cert) {
+int validate_dates(X509* cert) {
     int day, sec;
 
     // check the `notBefore` date
-    ASN1_TIME *before = X509_get_notBefore(cert);
+    ASN1_TIME* before = X509_get_notBefore(cert);
     if (!ASN1_TIME_diff(&day, &sec, NULL, before)) {
         perror("Error checking `Not Before` date");
         exit(EXIT_FAILURE);
@@ -158,7 +162,7 @@ int validate_dates(X509 *cert) {
     }
 
     // check the `notAfter` (expiry) date
-    ASN1_TIME *after = X509_get_notAfter(cert);
+    ASN1_TIME* after = X509_get_notAfter(cert);
     if (!ASN1_TIME_diff(&day, &sec, NULL, after)) {
         perror("Error checking `Not After` date");
         exit(EXIT_FAILURE);
@@ -180,7 +184,7 @@ int validate_dates(X509 *cert) {
  * @param url   to which the cert is supposed to belong
  * @return whether the domain name is valid (1) or not (0)
  */
-int validate_domain(X509 *cert, char* url) {
+int validate_domain(X509* cert, char* url) {
     // check whether CommonName (CN) corresponds to URL
     int cn_valid = validate_cn(cert, url);
 
@@ -197,12 +201,12 @@ int validate_domain(X509 *cert, char* url) {
  * @param url   to which the cert's CommonName is compared
  * @return whether the cert's CommonName matches the URL (1) or not (0)
  */
-int validate_cn(X509 *cert, char* url) {
+int validate_cn(X509* cert, char* url) {
     char* cn = (char*)malloc(CN_SIZE * sizeof(char));
     assert(cn);
 
     // obtain the cert's CN
-    X509_NAME *common_name = X509_get_subject_name(cert);
+    X509_NAME* common_name = X509_get_subject_name(cert);
     if (X509_NAME_get_text_by_NID(common_name, NID_commonName, cn, CN_SIZE) < 0) {
         fprintf(stderr, "CN NOT FOUND\n");
         exit(EXIT_FAILURE);
@@ -285,7 +289,7 @@ int validate_name(char* name, char* url) {
  * @param cert  whose key length is to be validated
  * @return whether key length is at least 2048 bits (1) or not (0)
  */
-int validate_key_length(X509 *cert) {
+int validate_key_length(X509* cert) {
     // obtain the key from the cert
     EVP_PKEY* public_key = X509_get_pubkey(cert);
 
@@ -392,10 +396,10 @@ char* get_extension_buf(X509* cert, int nid) {
     }
 
     // the extension is present; obtain its value(s)
-    X509_EXTENSION *ex = X509_get_ext(cert, loc);
-    BUF_MEM *bptr = NULL;
-    char *buf = NULL;
-    BIO *bio = BIO_new(BIO_s_mem());
+    X509_EXTENSION* ex = X509_get_ext(cert, loc);
+    BUF_MEM* bptr = NULL;
+    char* buf = NULL;
+    BIO* bio = BIO_new(BIO_s_mem());
 
     if (!X509V3_EXT_print(bio, ex, 0, 0)) {
         fprintf(stderr, "Error in reading extensions\n");
