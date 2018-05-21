@@ -318,37 +318,11 @@ int validate_key_length(X509* cert) {
  * @return whether the cert can act as a CA (0) or not (1)
  */
 int validate_basic_constraints(X509* cert) {
-    // obtain the buffer containing BasicConstraints, if it exists
-    char* buf = get_extension_buf(cert, NID_basic_constraints);
-    if (buf == NULL) {
-        return INVALID;
+    BASIC_CONSTRAINTS* bs;
+    bs = X509_get_ext_d2i(cert, NID_basic_constraints, NULL, NULL);
+    if (bs != NULL) {
+        return bs->ca;
     }
-
-    // parse the buffer and check whether CA is TRUE or FALSE
-    char* end_entry;
-    char* entry = strtok_r(buf, ",", &end_entry);
-
-    while (entry != NULL) {
-        char* end_is_ca;
-        char* flush = strtok_r(entry, ":", &end_is_ca);
-
-        // only interested in the `CA` field's value
-        if (strncmp(flush, "CA", strlen("CA"))) {
-            entry = strtok_r(NULL, ",", &end_entry);
-            continue;
-        }
-
-        // only valid if CA is FALSE
-        char* is_ca = strtok_r(NULL, ":", &end_is_ca);
-        if (!strncmp(is_ca, "FALSE", strlen("FALSE"))) {
-            return VALID;
-        }
-
-        entry = strtok_r(NULL, ",", &end_entry);
-    }
-
-    free(buf);
-
     return INVALID;
 }
 
