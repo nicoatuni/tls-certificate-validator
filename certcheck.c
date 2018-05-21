@@ -321,7 +321,7 @@ int validate_basic_constraints(X509* cert) {
     BASIC_CONSTRAINTS* bs;
     bs = X509_get_ext_d2i(cert, NID_basic_constraints, NULL, NULL);
     if (bs != NULL) {
-        return bs->ca;
+        return !bs->ca;
     }
     return INVALID;
 }
