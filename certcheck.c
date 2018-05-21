@@ -156,7 +156,6 @@ int validate_dates(X509* cert) {
         fprintf(stderr, "Error checking `Not Before` date\n");
         exit(EXIT_FAILURE);
     }
-    ASN1_STRING_free(before);
 
     // if `day` or `sec` is +ve, `notBefore` is in the future; hence, invalid cert
     if (day > 0 || sec > 0) {
@@ -169,7 +168,6 @@ int validate_dates(X509* cert) {
         fprintf(stderr, "Error checking `Not After` date\n");
         exit(EXIT_FAILURE);
     }
-    ASN1_STRING_free(after);
 
     // if `day` or `sec` is negative, `notAfter` is in the past (expired)
     if (day < 0 || sec < 0) {
