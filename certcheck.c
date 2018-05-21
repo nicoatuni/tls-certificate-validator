@@ -24,6 +24,7 @@
 # define CN_BUF_SIZE 1024
 # define BYTE_TO_BIT 8
 # define MIN_KEY_LENGTH 2048
+# define SERVER_AUTH "TLS Web Server Authentication"
 
 /* ---------------------- Helper function prototype ------------------------- */
 void validate_cert(FILE* output, char* path_to_cert, char* url);
@@ -39,7 +40,7 @@ int validate_cn(X509 *cert, char* url);
 int validate_name(char* buf, char* url);
 int validate_key_length(X509 *cert);
 int validate_basic_constraints(X509* cert);
-
+int validate_ext_key_usage(X509* cert);
 
 /* ----------------------------- Main Program ------------------------------- */
 int main(int argc, char const *argv[]) {
@@ -149,6 +150,11 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
         return;
     }
 
+    // validate Extended Key Usage
+    if (!validate_ext_key_usage(cert)) {
+        fprintf(output, "%s,%s,%d\n", path_to_cert, url, INVALID);
+        return;
+    }
     
     // the minimum checking you are expected to do is as follows:
     // 1. [X] validation of dates, both the `Not Before` and `Not After` dates
@@ -464,6 +470,50 @@ int validate_basic_constraints(X509* cert) {
 
     /* DEBUGGING -- REMOVE ----------------------------------------- */
     DLOG("%-15s  %-30s (0)\n", "", "CA = True");
+    /* ------------------------------------------------------------- */
+    return INVALID;
+}
+
+
+/**
+ * 
+ */
+int validate_ext_key_usage(X509* cert) {
+    int loc = X509_get_ext_by_NID(cert, NID_ext_key_usage, -1);
+    if (loc == -1) {
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        DLOG("%-15s  %-30s (0)\n", "", "Extended Key Usage extension not present");
+        /* ------------------------------------------------------------- */
+        return INVALID;
+    }
+
+    // Extended Key Usage extension is present; obtain its value
+    X509_EXTENSION *ex = X509_get_ext(cert, loc);
+    BUF_MEM *bptr = NULL;
+    char *buf = NULL;
+    BIO *bio = BIO_new(BIO_s_mem());
+
+    if (!X509V3_EXT_print(bio, ex, 0, 0)) {
+        fprintf(stderr, "Error in reading extensions\n");
+    }
+
+    BIO_flush(bio);
+    BIO_get_mem_ptr(bio, &bptr);
+
+    // bptr->data is not NULL terminated - add null character
+    buf = (char *)malloc((bptr->length + 1) * sizeof(char));
+    memcpy(buf, bptr->data, bptr->length);
+    buf[bptr->length] = '\0';
+
+    if (!strncmp(buf, SERVER_AUTH, strlen(SERVER_AUTH))) {
+        /* DEBUGGING -- REMOVE ----------------------------------------- */
+        DLOG("%-15s  %-30s (1)\n", "", SERVER_AUTH);
+        /* ------------------------------------------------------------- */
+        return VALID;
+    }
+
+    /* DEBUGGING -- REMOVE ----------------------------------------- */
+    DLOG("%-15s  %-30s (0)\n", "", "Extended Key Usage not TLS Web Server Authentication");
     /* ------------------------------------------------------------- */
     return INVALID;
 }
