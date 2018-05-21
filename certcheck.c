@@ -334,7 +334,8 @@ int validate_basic_constraints(X509* cert) {
         is_valid = !bs->ca;
         BASIC_CONSTRAINTS_free(bs);
     } else {
-        is_valid = INVALID;
+        // if BasicConstraints is missing in the cert, it is assumed to not be a CA
+        is_valid = VALID;
     }
 
     return is_valid;
@@ -348,21 +349,21 @@ int validate_basic_constraints(X509* cert) {
  */
 int validate_ext_key_usage(X509* cert) {
     // obtain the cert's Extended Key Usage(s)
-    EXTENDED_KEY_USAGE* ext_key_usage;
-    ext_key_usage = X509_get_ext_d2i(cert, NID_ext_key_usage, NULL, NULL);
+    EXTENDED_KEY_USAGE* ext_key_usages;
+    ext_key_usages = X509_get_ext_d2i(cert, NID_ext_key_usage, NULL, NULL);
 
-    if (ext_key_usage != NULL) {
+    if (ext_key_usages != NULL) {
         int i;
         // iterate over all of the usage(s)
-        for (i = 0; i < sk_ASN1_OBJECT_num(ext_key_usage); i++) {
-            int nid = OBJ_obj2nid(sk_ASN1_OBJECT_value(ext_key_usage, i));
+        for (i = 0; i < sk_ASN1_OBJECT_num(ext_key_usages); i++) {
+            int nid = OBJ_obj2nid(sk_ASN1_OBJECT_value(ext_key_usages, i));
 
             // only valid if the usage is for TLS Web Server Authentication
             if (nid == NID_server_auth) {
                 return VALID;
             }
         }
-        EXTENDED_KEY_USAGE_free(ext_key_usage);
+        EXTENDED_KEY_USAGE_free(ext_key_usages);
     }
 
     return INVALID;
