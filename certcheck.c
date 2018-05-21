@@ -63,7 +63,7 @@ int main(int argc, char const *argv[]) {
     }
 
     /* DEBUGGING -- REMOVE --------------------------------------------- */
-    DLOG("START DEBUGGING\n=========================================\n");
+    DLOG("=========================================\n");
     /* ----------------------------------------------------------------- */
 
     // read the contents of the input csv file
@@ -146,13 +146,8 @@ void validate_cert(FILE* output, char* path_to_cert, char* url) {
     // the minimum checking you are expected to do is as follows:
     // 1. [X] validation of dates, both the `Not Before` and `Not After` dates
     // 2. [X] domain name validation, including SAN extension, and wildcards
-    // 3. [ ] minimum key length of 2048 bits for RSA
+    // 3. [X] minimum key length of 2048 bits for RSA
     // 4. [ ] correct key usage, including extensions
-
-    // Assumptions:
-    // - no restrictions on SAN’s beyond the specification
-    // - wildcard domains are allowed in both the Common Name and the SAN.
-    // - all certificates will use RSA key
 
     // Part B Basic Certificate Checking (5 marks)
     // – Reads input CSV and write output CSV (1 mark)
@@ -203,7 +198,7 @@ int validate_dates(X509 *cert, char* path_to_cert) {
     // hence, invalid cert
     if (day > 0 || sec > 0) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-15s: `notBefore` is in the future (0)\n", path_to_cert);
+        DLOG("%-15s: %-30s (0)\n", path_to_cert, "`notBefore` is in the future");
         /* ------------------------------------------------------------- */
         return INVALID;
     }
@@ -218,14 +213,14 @@ int validate_dates(X509 *cert, char* path_to_cert) {
     // if `day` or `sec` is negative, `notAfter` is in the past
     if (day < 0 || sec < 0) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-15s: `notAfter` is in the past -- expired (0)\n", path_to_cert);
+        DLOG("%-15s: %-30s (0)\n", path_to_cert, "`notAfter` is in the past");
         /* ------------------------------------------------------------- */
         return INVALID;
     }
 
     // dates are valid!
     /* DEBUGGING -- REMOVE ----------------------------------------- */
-    DLOG("%-15s: Dates are valid (1)\n", path_to_cert);
+    DLOG("%-15s: %-30s (1)\n", path_to_cert, "Dates are valid");
     /* ------------------------------------------------------------- */
     return VALID;
 }
@@ -289,7 +284,7 @@ int validate_san(int cn_valid, X509* cert, char* url) {
     if (loc == -1) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
         if (!cn_valid) {
-            DLOG("%-15s  CN does not match URL + No SAN (0)\n", "");
+            DLOG("%-26s (0)\n", "does not match URL + No SAN");
         }
         /* ------------------------------------------------------------- */
         return INVALID;
@@ -297,9 +292,9 @@ int validate_san(int cn_valid, X509* cert, char* url) {
 
     /* DEBUGGING -- REMOVE --------------------------------------------- */
     if (cn_valid) {
-        DLOG("%-15s  CN matches URL + SAN (1)\n", "");
+        DLOG("%-15s  %-30s (1)\n", "", "CN matches URL + SAN");
     } else {
-        DLOG("%-15s  CN does not match URL + SAN (?)\n", "");
+        DLOG("%-26s (?)\n", "does not match URL + SAN");
     }
     /* ----------------------------------------------------------------- */
 
@@ -358,7 +353,7 @@ int validate_name(char* name, char* url) {
     // check if name matches URL outright
     if (!strncmp(url, name, strlen(url))) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("Name matches URL (1)\n");
+        DLOG("%-26s (1)\n", "Name matches URL");
         /* ------------------------------------------------------------- */
 
         return VALID;
@@ -371,7 +366,7 @@ int validate_name(char* name, char* url) {
             wildcard = strstr(url, name_temp);
             if (wildcard != NULL) {
                 /* DEBUGGING -- REMOVE --------------------------------- */
-                DLOG("Wildcard matches URL (1)\n");
+                DLOG("%-26s (1)\n", "Wildcard matches URL");
                 /* ----------------------------------------------------- */
 
                 // it _does_ match!
@@ -393,8 +388,10 @@ int validate_key_length(X509 *cert) {
     // obtain the key from the cert
     EVP_PKEY* public_key = X509_get_pubkey(cert);
 
-    // get the size of the key, although in bytes
+    // assume all certificates will use RSA keys, as per the spec
     RSA* rsa_key = EVP_PKEY_get1_RSA(public_key);
+
+    // get the size of the key, although in bytes
     int key_length = RSA_size(rsa_key);
 
     // need to be freed, as per the documentation
@@ -404,13 +401,13 @@ int validate_key_length(X509 *cert) {
     // check if key length (in bits) is at least 2048 bits
     if ((key_length * BYTE_TO_BIT) >= MIN_KEY_LENGTH) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-15s  Key length >= 2048 bits (1)\n", "");
+        DLOG("%-15s  %-30s (1)\n", "", "Key length >= 2048 bits");
         /* ------------------------------------------------------------- */
 
         return VALID;
     }
     /* DEBUGGING -- REMOVE --------------------------------------------- */
-    DLOG("%-15s  Key length < 2048 bits (0)\n", "");
+    DLOG("%-15s  %-30s (0)\n", "", "Key length < 2048 bits");
     /* ----------------------------------------------------------------- */
     return INVALID;
 }
