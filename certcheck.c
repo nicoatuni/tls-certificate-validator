@@ -153,9 +153,10 @@ int validate_dates(X509* cert) {
     // check the `notBefore` date
     ASN1_TIME* before = X509_get_notBefore(cert);
     if (!ASN1_TIME_diff(&day, &sec, NULL, before)) {
-        perror("Error checking `Not Before` date");
+        fprintf(stderr, "Error checking `Not Before` date\n");
         exit(EXIT_FAILURE);
     }
+    ASN1_STRING_free(before);
 
     // if `day` or `sec` is +ve, `notBefore` is in the future; hence, invalid cert
     if (day > 0 || sec > 0) {
@@ -165,9 +166,10 @@ int validate_dates(X509* cert) {
     // check the `notAfter` (expiry) date
     ASN1_TIME* after = X509_get_notAfter(cert);
     if (!ASN1_TIME_diff(&day, &sec, NULL, after)) {
-        perror("Error checking `Not After` date");
+        fprintf(stderr, "Error checking `Not After` date\n");
         exit(EXIT_FAILURE);
     }
+    ASN1_STRING_free(after);
 
     // if `day` or `sec` is negative, `notAfter` is in the past (expired)
     if (day < 0 || sec < 0) {
@@ -209,7 +211,7 @@ int validate_cn(X509* cert, char* url) {
     // obtain the cert's CN
     X509_NAME* common_name = X509_get_subject_name(cert);
     if (X509_NAME_get_text_by_NID(common_name, NID_commonName, cn, CN_SIZE) < 0) {
-        fprintf(stderr, "CN NOT FOUND\n");
+        fprintf(stderr, "CN not found\n");
         exit(EXIT_FAILURE);
     }
 
@@ -293,6 +295,10 @@ int validate_name(char* name, char* url) {
 int validate_key_length(X509* cert) {
     // obtain the key from the cert
     EVP_PKEY* public_key = X509_get_pubkey(cert);
+    if (public_key == NULL) {
+        fprintf(stderr, "Error getting public key\n");
+        exit(EXIT_FAILURE);
+    }
 
     // assume all certificates will use RSA keys, as per the spec
     RSA* rsa_key = EVP_PKEY_get1_RSA(public_key);
