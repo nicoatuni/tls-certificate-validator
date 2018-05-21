@@ -211,7 +211,7 @@ int validate_dates(X509 *cert, char* path_to_cert) {
     // hence, invalid cert
     if (day > 0 || sec > 0) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-15s: %-30s (0)\n", path_to_cert, "`notBefore` is in the future");
+        DLOG("%-15s: `notBefore` is in the future (X)\n", path_to_cert);
         /* ------------------------------------------------------------- */
         return INVALID;
     }
@@ -226,14 +226,14 @@ int validate_dates(X509 *cert, char* path_to_cert) {
     // if `day` or `sec` is negative, `notAfter` is in the past
     if (day < 0 || sec < 0) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-15s: %-30s (0)\n", path_to_cert, "`notAfter` is in the past");
+        DLOG("%-15s: `notAfter` is in the past (X)\n", path_to_cert);
         /* ------------------------------------------------------------- */
         return INVALID;
     }
 
     // dates are valid!
     /* DEBUGGING -- REMOVE ----------------------------------------- */
-    DLOG("%-15s: %-30s (1)\n", path_to_cert, "Dates are valid");
+    DLOG("%-15s: Dates are valid (OK), ", path_to_cert);
     /* ------------------------------------------------------------- */
     return VALID;
 }
@@ -272,7 +272,7 @@ int validate_cn(X509 *cert, char* url) {
     }
 
     /* DEBUGGING -- REMOVE --------------------------------------------- */
-    DLOG("%-15s  CN: ", "");
+    DLOG("CN: ");
     /* ----------------------------------------------------------------- */
 
     int is_valid = validate_name(cn_buf, url);
@@ -297,7 +297,7 @@ int validate_san(int cn_valid, X509* cert, char* url) {
     if (loc == -1) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
         if (!cn_valid) {
-            DLOG("%-26s (0)\n", "does not match URL + No SAN");
+            DLOG("CN does not match URL + No SAN (X)\n");
         }
         /* ------------------------------------------------------------- */
         return INVALID;
@@ -305,9 +305,9 @@ int validate_san(int cn_valid, X509* cert, char* url) {
 
     /* DEBUGGING -- REMOVE --------------------------------------------- */
     if (cn_valid) {
-        DLOG("%-15s  %-30s (1)\n", "", "CN matches URL + SAN");
+        DLOG("CN matches URL + SAN (OK), ");
     } else {
-        DLOG("%-26s (?)\n", "does not match URL + SAN");
+        DLOG("CN does not match URL + SAN (?), ");
     }
     /* ----------------------------------------------------------------- */
 
@@ -339,7 +339,7 @@ int validate_san(int cn_valid, X509* cert, char* url) {
         char* san   = strtok_r(NULL, ":", &end_san);
 
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-15s  SAN: ", "");
+        DLOG("SAN: ");
         /* ------------------------------------------------------------- */
         if (validate_name(san, url)) {
             return VALID;
@@ -366,7 +366,7 @@ int validate_name(char* name, char* url) {
     // check if name matches URL outright
     if (!strncmp(url, name, strlen(url))) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-26s (1)\n", "Name matches URL");
+        DLOG("Name matches URL (OK), ");
         /* ------------------------------------------------------------- */
 
         return VALID;
@@ -379,7 +379,7 @@ int validate_name(char* name, char* url) {
             wildcard = strstr(url, name_temp);
             if (wildcard != NULL) {
                 /* DEBUGGING -- REMOVE --------------------------------- */
-                DLOG("%-26s (1)\n", "Wildcard matches URL");
+                DLOG("Wilcard matches URL (OK), ");
                 /* ----------------------------------------------------- */
 
                 // it _does_ match!
@@ -414,13 +414,13 @@ int validate_key_length(X509 *cert) {
     // check if key length (in bits) is at least 2048 bits
     if ((key_length * BYTE_TO_BIT) >= MIN_KEY_LENGTH) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-15s  %-30s (1)\n", "", "Key length >= 2048 bits");
+        DLOG("Key length >= 2048 bits (OK), ");
         /* ------------------------------------------------------------- */
 
         return VALID;
     }
     /* DEBUGGING -- REMOVE --------------------------------------------- */
-    DLOG("%-15s  %-30s (0)\n", "", "Key length < 2048 bits");
+    DLOG("Key length < 2048 bits (X)\n");
     /* ----------------------------------------------------------------- */
     return INVALID;
 }
@@ -463,13 +463,13 @@ int validate_basic_constraints(X509* cert) {
 
     if (!strncmp(is_ca, "FALSE", strlen("FALSE"))) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-15s  %-30s (1)\n", "", "CA = False");
+        DLOG("CA: False (OK), ");
         /* ------------------------------------------------------------- */
         return VALID;
     }
 
     /* DEBUGGING -- REMOVE ----------------------------------------- */
-    DLOG("%-15s  %-30s (0)\n", "", "CA = True");
+    DLOG("CA: True (X)\n");
     /* ------------------------------------------------------------- */
     return INVALID;
 }
@@ -507,13 +507,13 @@ int validate_ext_key_usage(X509* cert) {
 
     if (!strncmp(buf, SERVER_AUTH, strlen(SERVER_AUTH))) {
         /* DEBUGGING -- REMOVE ----------------------------------------- */
-        DLOG("%-15s  %-30s (1)\n", "", SERVER_AUTH);
+        DLOG("Server Auth (OK)\n");
         /* ------------------------------------------------------------- */
         return VALID;
     }
 
     /* DEBUGGING -- REMOVE ----------------------------------------- */
-    DLOG("%-15s  %-30s (0)\n", "", "Extended Key Usage not TLS Web Server Authentication");
+    DLOG("Non-Server Auth (X)\n");
     /* ------------------------------------------------------------- */
     return INVALID;
 }
