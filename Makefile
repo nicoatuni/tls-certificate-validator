@@ -7,8 +7,8 @@ CFLAGS	= -Wall -lssl -lcrypto
 
 # > > > > > > > > > > > > > > > > > > > > > > > > > > > |
 # REMOVE
-I_FLAG	= -I/Users/nico/miniconda3/envs/util/include/
-L_FLAG	= -L/Users/nico/miniconda3/envs/util/lib/ -rpath /Users/nico/miniconda3/envs/util/lib/
+# I_FLAG	= -I/Users/nico/miniconda3/envs/util/include/
+# L_FLAG	= -L/Users/nico/miniconda3/envs/util/lib/ -rpath /Users/nico/miniconda3/envs/util/lib/
 # > > > > > > > > > > > > > > > > > > > > > > > > > > > |
 
 SRC	= certcheck.c
@@ -16,23 +16,44 @@ OBJ	= certcheck.o
 EXE	= certcheck
 
 
-$(EXE): $(OBJ)
+# For macOS
+# $(EXE): $(OBJ)
 	# > > > > > > > > > > > > > > > > > > > > > > > > |
-	# REMOVE & UNCOMMENT BELOW
-	$(CC) -o $(EXE) $(OBJ) $(CFLAGS) $(L_FLAG)
+	# REMOVE
+	# $(CC) -o $(EXE) $(OBJ) $(CFLAGS) $(L_FLAG)
 	# > > > > > > > > > > > > > > > > > > > > > > > > |
-	# $(CC) -o $(EXE) $(0BJ) $(CFLAGS)
 
 
 # > > > > > > > > > > > > > > > > > > > > > > > > > > |
 # REMOVE
-$(OBJ): $(SRC)
-ifeq ($(DEBUG),1)
-	$(CC) -c $(SRC) $(I_FLAG) -DDEBUG
-else
-	$(CC) -c $(SRC) $(I_FLAG)
-endif
+# $(OBJ): $(SRC)
+# ifeq ($(DEBUG),1)
+# 	$(CC) -c $(SRC) $(I_FLAG) -DDEBUG
+# else
+# 	$(CC) -c $(SRC) $(I_FLAG)
+# endif
 # > > > > > > > > > > > > > > > > > > > > > > > > > > |
+
+
+# For Ubuntu
+$(EXE):
+ifeq ($(DEBUG),1)
+	$(CC) -o $(EXE) $(SRC) $(CFLAGS) -DDEBUG
+else
+	$(CC) -o $(EXE) $(SRC) $(CFLAGS)
+endif
+
+
+# For Nectar
+# $(EXE):
+	# $(CC) -o $(EXE) $(SRC) $(CFLAGS)
+
+
+# $(EXE): $(OBJ)
+	# > > > > > > > > > > > > > > > > > > > > > > > > |
+	# REMOVE & UNCOMMENT BELOW
+	# $(CC) -o $(EXE) $(OBJ) $(CFLAGS) $(L_FLAG)
+	# > > > > > > > > > > > > > > > > > > > > > > > > |
 
 
 clean:
