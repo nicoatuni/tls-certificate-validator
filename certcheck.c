@@ -267,13 +267,18 @@ int validate_san(X509* cert, char* url) {
  * @return whether `name` and `url` match (1) or not (0)
  */
 int validate_name(char* name, char* url) {
+    int is_valid = 0;
+
     // check if name matches URL outright
     if (!strncmp(url, name, strlen(url))) {
         return VALID;
     }
 
-    // okay, how about through wildcards?
-    int is_valid = 0;
+    /* ok, how about through wildcards? */
+
+    // duplicate `url` because we're potentially manipulating it with strtok_r()
+    char* url_temp = strndup(url, strlen(url));
+
     if (name[0] == '*') {
         // setup the name (CN or SAN)
         char* name_end;
@@ -282,7 +287,7 @@ int validate_name(char* name, char* url) {
 
         // setup the URL (domain)
         char* url_end;
-        char* url_left = strtok_r(url, ".", &url_end);   // left-most URL label
+        char* url_left = strtok_r(url_temp, ".", &url_end); // left-most URL label
         char* url_label = strtok_r(NULL, ".", &url_end);
 
         // the immediate label after the asterisk should match the URL's
@@ -300,6 +305,7 @@ int validate_name(char* name, char* url) {
         }
     }
 
+    free(url_temp);
     return is_valid;
 }
 
