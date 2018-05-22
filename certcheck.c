@@ -236,20 +236,21 @@ int validate_san(X509* cert, char* url) {
 
     // parse the buffer and extract the individual SAN's
     char* end_entry;
-    char* entry = strtok_r(buf, ",", &end_entry);
+    char* full_san = strtok_r(buf, ",", &end_entry);
 
     // exhaust the SAN's until we find one that matches
-    while (entry != NULL) {
+    while (full_san != NULL) {
         char* end_san;
-        char* flush = strtok_r(entry, ":", &end_san);   // 'DNS' (unused)
-        char* san   = strtok_r(NULL, ":", &end_san);    // the actual SAN value
+        char* dns = strtok_r(full_san, ":", &end_san);      // 'DNS' (unused)
+        char* san = strtok_r(NULL, ":", &end_san);          // the actual SAN value
 
         // check whether the SAN matches outright or through wildcards
         if (validate_name(san, url)) {
+            free(buf);
             return VALID;
         }
 
-        entry = strtok_r(NULL, ",", &end_entry);
+        full_san = strtok_r(NULL, ",", &end_entry);
     }
 
     free(buf);      // buf is dynamically allocated in get_extension_buf(...)
@@ -272,16 +273,34 @@ int validate_name(char* name, char* url) {
     }
 
     // okay, how about through wildcards?
+    int is_valid = 0;
     if (name[0] == '*') {
-        char* name_temp = name + 1;
-        char* wildcard = strstr(url, name_temp);
+        // setup the name (CN or SAN)
+        char* name_end;
+        char* asterisk = strtok_r(name, ".", &name_end);
+        char* name_label = strtok_r(NULL, ".", &name_end);
 
-        if (wildcard != NULL) {
-            return VALID;       // it's a match!
+        // setup the URL (domain)
+        char* url_end;
+        char* url_left = strtok_r(url, ".", &url_end);   // left-most URL label
+        char* url_label = strtok_r(NULL, ".", &url_end);
+
+        // the immediate label after the asterisk should match the URL's
+        // second label from the left (asterisk covers the first label); then,
+        // the subsequent labels have to match
+        while (name_label && url_label) {
+            if (!strncmp(name_label, url_label, strlen(name_label))) {
+                name_label = strtok_r(NULL, ".", &name_end);
+                url_label  = strtok_r(NULL, ".", &url_end);
+                is_valid = VALID;
+            } else {
+                is_valid = INVALID;
+                break;
+            }
         }
     }
 
-    return INVALID;
+    return is_valid;
 }
 
 
@@ -327,7 +346,7 @@ int validate_basic_constraints(X509* cert) {
     BASIC_CONSTRAINTS* bs;
     bs = X509_get_ext_d2i(cert, NID_basic_constraints, NULL, NULL);
 
-    int is_valid;
+    int is_valid = 0;
     if (bs != NULL) {
         // bs->ca is 1 if CA:TRUE and vice versa, so we want its oppposite,
         // since we only consider the cert to be valid if CA:FALSE
@@ -352,6 +371,7 @@ int validate_ext_key_usage(X509* cert) {
     EXTENDED_KEY_USAGE* ext_key_usages;
     ext_key_usages = X509_get_ext_d2i(cert, NID_ext_key_usage, NULL, NULL);
 
+    int is_valid = 0;
     if (ext_key_usages != NULL) {
         int i;
         // iterate over all of the usage(s)
@@ -360,13 +380,14 @@ int validate_ext_key_usage(X509* cert) {
 
             // only valid if the usage is for TLS Web Server Authentication
             if (nid == NID_server_auth) {
-                return VALID;
+                is_valid = VALID;
+                break;
             }
         }
         EXTENDED_KEY_USAGE_free(ext_key_usages);
     }
 
-    return INVALID;
+    return is_valid;
 }
 
 
