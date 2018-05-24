@@ -29,7 +29,7 @@ results[testeleven.crt,freeca.com]=0
 results[testtwo.crt,www.example.com]=0
 results[testseven.crt,example.com]=0
 
-while IFS=',' read -ra line || [[ -n "$line" ]]; do
+while IFS=$',|\r' read -ra line || [[ -n "$line" ]]; do
     if [ ${results["${line[0]},${line[1]}"]} == ${line[2]} ] 
     then
         if [ ${line[2]} == "0" ] 
