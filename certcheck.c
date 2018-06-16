@@ -107,38 +107,24 @@ int validate_cert(char* path_to_cert, char* url) {
     }
 
     /* cert contains the X509 certificate and is ready to be validated */
+    int is_valid;
 
-    // first, check the dates
-    if (!validate_dates(cert)) {
-        return INVALID;
-    }
-
-    // validate domain name
-    if (!validate_domain(cert, url)) {
-        return INVALID;
-    }
-
-    // validate key length
-    if (!validate_key_length(cert)) {
-        return INVALID;
-    }
-
-    // validate BasicConstraints
-    if (!validate_basic_constraints(cert)) {
-        return INVALID;
-    }
-
-    // validate Extended Key Usage
-    if (!validate_ext_key_usage(cert)) {
-        return INVALID;
+    // validate all the required properties/extensions
+    if (validate_dates(cert) && \
+        validate_domain(cert, url) && \
+        validate_key_length(cert) && \
+        validate_basic_constraints(cert) && \
+        validate_ext_key_usage(cert)) {
+            is_valid = VALID;
+    } else {
+        is_valid = INVALID;
     }
 
     // no longer need cert, free it
     X509_free(cert);
     BIO_free_all(certificate_bio);
 
-    // cert passes all those validation checks; it's valid!
-    return VALID;
+    return is_valid;
 }
 
 
