@@ -58,6 +58,11 @@ int main(int argc, char const *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    // initialise OpenSSL
+    OpenSSL_add_all_algorithms();
+    ERR_load_BIO_strings();
+    ERR_load_crypto_strings();
+
     // read the contents of the input csv file
     char line[LINE_LENGTH];
     while (fgets(line, LINE_LENGTH, fp)) {
@@ -87,11 +92,6 @@ int main(int argc, char const *argv[]) {
 int validate_cert(char* path_to_cert, char* url) {
     BIO* certificate_bio = NULL;
     X509* cert = NULL;
-
-    // initialise OpenSSL
-    OpenSSL_add_all_algorithms();
-    ERR_load_BIO_strings();
-    ERR_load_crypto_strings();
 
     // create BIO object to read certificate
     certificate_bio = BIO_new(BIO_s_file());
